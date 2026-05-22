@@ -1,7 +1,6 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { JuegoContext } from '../context/JuegoContext';
 
-// 💡 AGREGAMOS onViewProfile A LAS PROPS
 export const LobbyView = ({ onStartGame, onViewProfile }) => {
   const { 
     usuario, 
@@ -16,7 +15,7 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  // 💡 CONFIGURADO TÁCTICAMENTE PARA TU DISPOSITIVO MÓVIL EN LA RED LOCAL
+  // 💡 CONFIGURADO TÁCTICAMENTE PARA TU RED LOCAL
   const API_URL = 'http://192.168.18.199:8000/api/sala';
 
   useEffect(() => {
@@ -101,7 +100,7 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
 
   const esCreador = sala?.esCreador;
 
-  // ESTILOS EN LÍNEA
+  // ESTILOS EN LÍNEA: Inmersivos, estructurados y border-box absoluto
   const estilos = {
     contenedorBase: {
       position: 'fixed',
@@ -149,32 +148,38 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
       gap: '6px',
       transition: 'all 0.2s'
     },
+    contenidosWrapper: {
+      flex: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      width: '100%',
+      maxWidth: '380px', // Restringimos el ancho para mantener el formato móvil
+      margin: '0 auto',
+      boxSizing: 'border-box'
+    },
     tarjetaMorada: {
       background: 'linear-gradient(145deg, #141416 0%, #0d0d0f 100%)',
       border: '1px solid rgba(167, 139, 250, 0.4)',
       borderRadius: '16px',
-      padding: '20px',
+      padding: '24px',
       marginBottom: '20px',
-      boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+      boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
       width: '100%',
-      maxWidth: '400px',
-      margin: '0 auto 20px auto',
       boxSizing: 'border-box'
     },
     tarjetaTurquesa: {
       background: 'linear-gradient(145deg, #141416 0%, #0d0d0f 100%)',
       border: '1px solid rgba(10, 232, 198, 0.4)',
       borderRadius: '16px',
-      padding: '20px',
-      boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+      padding: '24px',
+      boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
       width: '100%',
-      maxWidth: '400px',
-      margin: '0 auto',
       boxSizing: 'border-box'
     },
     subtituloCard: {
       margin: '0',
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: '900',
       textTransform: 'uppercase',
       letterSpacing: '1px',
@@ -183,7 +188,7 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
       gap: '8px'
     },
     descripcionCard: {
-      margin: '10px 0 16px 0',
+      margin: '12px 0 20px 0',
       fontSize: '12px',
       color: '#a1a1aa',
       lineHeight: '1.5'
@@ -192,29 +197,34 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
       width: '100%',
       backgroundColor: '#09090b',
       border: '1px solid #27272a',
-      borderRadius: '10px',
-      padding: '14px',
+      borderRadius: '12px',
+      padding: '16px',
       color: '#0AE8C6',
       textAlign: 'center',
-      fontSize: '15px',
+      fontSize: '16px',
       fontWeight: '900',
-      letterSpacing: '4px',
+      letterSpacing: '5px',
       outline: 'none',
       boxSizing: 'border-box',
-      marginBottom: '12px'
+      marginBottom: '12px',
+      textTransform: 'uppercase'
     },
     btnAccion: {
       width: '100%',
-      padding: '14px',
-      borderRadius: '10px',
+      padding: '16px',
+      borderRadius: '12px',
       border: 'none',
       fontSize: '13px',
-      fontWeight: 'bold',
+      fontWeight: '900',
       textTransform: 'uppercase',
       letterSpacing: '0.5px',
       cursor: 'pointer',
       boxSizing: 'border-box',
-      transition: 'all 0.2s'
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: '8px',
+      transition: 'opacity 0.2s'
     }
   };
 
@@ -228,13 +238,9 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
           <h1 style={estilos.tituloZtop}>ZTOP!</h1>
         </div>
         
-        {/* BOTÓN DE PERFIL - AHORA REDIRIGE A LA VISTA PERFIL */}
-        <button 
-          type="button" 
-          onClick={onViewProfile} // Llama a la función de cambio de vista
-          style={estilos.btnPerfil}
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        {/* BOTÓN DE PERFIL PROFESIONAL */}
+        <button type="button" onClick={onViewProfile} style={estilos.btnPerfil}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
@@ -244,10 +250,11 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
 
       {/* ÁREA CENTRAL DE PANELES */}
       {!sala ? (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+        /* VISTA 1: SELECCIÓN DE PROTOCOLOS (CREAR / UNIRSE) */
+        <div style={estilos.contenidosWrapper}>
           
           {error && (
-            <div style={{ maxWidth: '400px', margin: '0 auto 16px auto', width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#f87171', fontSize: '12px', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
+            <div style={{ width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#f87171', fontSize: '12px', padding: '12px', borderRadius: '12px', textAlign: 'center', marginBottom: '20px' }}>
               {error}
             </div>
           )}
@@ -255,11 +262,9 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
           {/* TARJETA: CREAR PARTIDA (MORADA) */}
           <div style={estilos.tarjetaMorada}>
             <h3 style={{ ...estilos.subtituloCard, color: '#a78bfa' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="2" y="6" width="20" height="12" rx="2"></rect>
-                <path d="M12 12h.01"></path>
-                <path d="M17 12h.01"></path>
-                <path d="M7 12h.01"></path>
+                <path d="M12 12h.01"></path><path d="M17 12h.01"></path><path d="M7 12h.01"></path>
               </svg>
               Protocolo Host
             </h3>
@@ -277,13 +282,13 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
           {/* TARJETA: VINCULAR NODOS (TURQUESA) */}
           <div style={estilos.tarjetaTurquesa}>
             <h3 style={{ ...estilos.subtituloCard, color: '#0AE8C6' }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ae8c6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0ae8c6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 7a2 2 0 0 1 2 2"></path><path d="M15 3a6 6 0 0 1 6 6"></path><path d="M11 17l-5.3-5.3a2 2 0 0 0-2.8 0c-.8.8-.8 2 0 2.8l5.3 5.3"></path><path d="M16 22l5.3-5.3a2 2 0 0 0 0-2.8c-.8-.8-2-.8-2.8 0L13.2 19"></path>
               </svg>
               Vincular Nodo
             </h3>
             <p style={estilos.descripcionCard}>Infiltrarse en una sala activa usando el código PIN de tus amigos.</p>
-            <form onSubmit={manejarUnirseSala}>
+            <form onSubmit={manejarUnirseSala} style={{ margin: 0 }}>
               <input
                 type="text"
                 maxLength={6}
@@ -305,42 +310,51 @@ export const LobbyView = ({ onStartGame, onViewProfile }) => {
 
         </div>
       ) : (
-        /* LOBBY INTERNO (ESPERA) */
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '30px 0' }}>
+        /* VISTA 2: LOBBY INTERNO (SALA DE ESPERA) REDISEÑADA CON VECTORES */
+        <div style={{ ...estilos.contenidosWrapper, justifyContent: 'space-between', padding: '20px 0' }}>
           
-          <div style={{ backgroundColor: '#141416', border: '1px solid #27272a', borderRadius: '20px', padding: '30px 20px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#71717a', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+          {/* TARJETA DE CÓDIGO MAESTRO */}
+          <div style={{ backgroundColor: '#141416', border: '1px solid #27272a', borderRadius: '20px', padding: '36px 24px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.5)', width: '100%', boxSizing: 'border-box' }}>
+            <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '11px', fontWeight: 'bold', color: '#71717a', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
               Código de Sala Activo
             </span>
-            <div style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '8px', color: '#ffffff', margin: '16px 0' }}>
+            <div style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '8px', color: '#ffffff', margin: '20px 0', textShadow: '0 0 20px rgba(255,255,255,0.1)' }}>
               {sala.codigo}
             </div>
-            <p style={{ fontSize: '13px', color: '#a1a1aa', margin: 0, lineHeight: '1.5' }}>
+            <p style={{ fontSize: '13px', color: '#a1a1aa', margin: 0, lineHeight: '1.6' }}>
               {esCreador 
-                ? 'Eres el Host. Espera a tus oponentes en el lobby antes de iniciar.' 
-                : `Sincronizado a la sesión de @${sala.creador_username.toLowerCase()}.`
+                ? 'Eres el Host de la partida. Espera a tus oponentes antes de iniciar la secuencia.' 
+                : `Sincronizado a la red de @${sala.creador_username.toLowerCase()}.`
               }
             </p>
           </div>
 
+          {/* RADAR DE SINCRONIZACIÓN */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'auto' }}>
-            <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '3px solid #27272a', borderTopColor: '#a78bfa', animation: 'spin 1s linear infinite' }} className="animate-spin" />
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#71717a', letterSpacing: '1px', marginTop: '16px', textTransform: 'uppercase' }}>
-              Sincronizando...
+            <div style={{ position: 'relative', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', border: '3px solid #27272a', borderTopColor: '#a78bfa', animation: 'spin 1.5s linear infinite' }} className="animate-spin" />
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#71717a', letterSpacing: '1px', marginTop: '20px', textTransform: 'uppercase' }}>
+              Sincronizando Nodos...
             </span>
           </div>
 
-          <div style={{ maxWidth: '400px', margin: '0 auto', width: '100%' }}>
+          {/* COMANDOS DE EJECUCIÓN (BOTÓN INFERIOR) */}
+          <div style={{ width: '100%', boxSizing: 'border-box' }}>
             {esCreador ? (
               <button
                 type="button"
                 onClick={manejarIniciarJuego}
-                style={{ ...estilos.btnAccion, backgroundColor: '#10b981', color: '#09090b', padding: '16px', fontSize: '14px', borderRadius: '12px' }}
+                style={{ ...estilos.btnAccion, backgroundColor: '#0ae8c6', color: '#09090b' }}
               >
-                Lanzar Partida 🚀
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                Lanzar Partida
               </button>
             ) : (
-              <div style={{ backgroundColor: '#09090b', border: '1px dashed #27272a', padding: '16px', borderRadius: '12px', textTransform: 'uppercase', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', color: '#52525b', letterSpacing: '1px' }}>
+              <div style={{ backgroundColor: '#09090b', border: '1px dashed #27272a', padding: '18px', borderRadius: '12px', textTransform: 'uppercase', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', color: '#52525b', letterSpacing: '1px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                 Esperando orden del Host...
               </div>
             )}

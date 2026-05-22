@@ -1,8 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { JuegoContext } from '../context/JuegoContext';
-import LayoutMobile from '../components/LayoutMobile';
-import InputTexto from '../components/InputTexto';
-import Boton from '../components/Boton';
 
 export const JuegoView = ({ onTimeOut }) => {
   const { 
@@ -29,6 +26,7 @@ export const JuegoView = ({ onTimeOut }) => {
     if (pantallaCongelada) {
       guardarRespuestasFinales();
     }
+    // eslint-disable-next-line
   }, [pantallaCongelada]);
 
   // Manejo del cambio de pantalla hacia el Podio al terminar el conteo
@@ -44,11 +42,10 @@ export const JuegoView = ({ onTimeOut }) => {
   const guardarRespuestasFinales = async () => {
     if (enviando) return;
     setEnviando(true);
-    setMensajeServidor('Congelando pantalla y guardando respuestas...');
+    setMensajeServidor('Congelando pantalla y subiendo respuestas...');
 
-    // SOLUCIÓN EXTRA-ROBUSTA: Apuntamos al código único de la sala en vez del ID de la ronda.
-    // Esto evita desajustes asíncronos en el cliente y deja el control en PostgreSQL.
-    const API_URL = `http://127.0.0.1:8000/api/sala/${sala?.codigo}/responder/`;
+    // 💡 URL APUNTANDO DIRECTO A TU SERVIDOR EN LA RED LOCAL
+    const API_URL = `http://192.168.18.199:8000/api/sala/${sala?.codigo}/responder/`;
 
     const payload = {
       nombre: nombre.trim(),
@@ -69,118 +66,209 @@ export const JuegoView = ({ onTimeOut }) => {
       });
 
       if (respuesta.ok) {
-        setMensajeServidor('¡Respuestas guardadas con éxito!');
+        setMensajeServidor('¡Respuestas sincronizadas con éxito!');
       } else {
         const errorData = await respuesta.json();
         setMensajeServidor(errorData.error || 'El servidor bloqueó la ronda.');
       }
     } catch (err) {
-      setMensajeServidor('Error al conectar con el servidor.');
+      setMensajeServidor('Error de conexión con la central.');
     } finally {
       setEnviando(false);
     }
   };
 
-  return (
-    <LayoutMobile>
-      <div className="flex-1 flex flex-col justify-between bg-white relative">
-        
-        {/* Barra Superior */}
-        <div className="px-6 py-4 bg-light-purple/30 border-b border-[#e6e6e6] flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-heading font-black uppercase tracking-widest text-muted-text">
-              Letra
-            </span>
-            <div className="w-14 h-14 rounded-2xl bg-primary-purple flex items-center justify-center shadow-md">
-              <span className="font-heading font-black text-3xl text-white">
-                {letra || '?'}
-              </span>
-            </div>
-          </div>
+  const modoAlerta = estadoJuego === 'cuenta_regresiva';
 
-          {estadoJuego === 'cuenta_regresiva' ? (
-            <div className="flex flex-col items-end animate-bounce">
-              <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-red-500">
-                ¡Alguien dijo Stop!
-              </span>
-              <span className="font-heading font-black text-3xl text-red-500">
+  // ESTILOS EN LÍNEA TÁCTICOS Y DE ALTA FIDELIDAD
+  const estilos = {
+    contenedorBase: {
+      position: 'fixed', inset: 0, width: '100vw', height: '100vh',
+      backgroundColor: '#09090b', color: '#e4e4e7',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
+      zIndex: 9999, overflow: 'hidden'
+    },
+    topBar: {
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      backgroundColor: '#141416', borderBottom: modoAlerta ? '2px solid #ef4444' : '1px solid #27272a',
+      padding: '16px 20px', transition: 'all 0.3s',
+      boxShadow: modoAlerta ? '0 4px 20px rgba(239, 68, 68, 0.2)' : '0 4px 20px rgba(0,0,0,0.5)'
+    },
+    letraCaja: {
+      width: '48px', height: '48px', borderRadius: '12px',
+      backgroundColor: '#18181b', border: '2px solid #a78bfa',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      fontSize: '28px', fontWeight: '900', color: '#fff',
+      boxShadow: '0 0 15px rgba(167, 139, 250, 0.4)', textTransform: 'uppercase'
+    },
+    scrollArea: {
+      flex: 1, padding: '20px', overflowY: 'auto', display: 'flex',
+      flexDirection: 'column', gap: '16px', boxSizing: 'border-box'
+    },
+    inputWrapper: {
+      display: 'flex', flexDirection: 'column', gap: '6px'
+    },
+    label: {
+      fontSize: '11px', fontWeight: '900', color: '#0ae8c6', textTransform: 'uppercase', letterSpacing: '1px'
+    },
+    input: {
+      width: '100%', backgroundColor: '#141416', border: '1px solid #27272a',
+      borderRadius: '12px', padding: '16px', color: '#fff', fontSize: '15px',
+      outline: 'none', boxSizing: 'border-box', transition: 'border 0.2s',
+      textTransform: 'uppercase'
+    },
+    footer: {
+      backgroundColor: '#141416', borderTop: modoAlerta ? '2px solid #ef4444' : '1px solid #27272a',
+      padding: '20px', paddingBottom: '30px', boxSizing: 'border-box'
+    },
+    btnStop: {
+      width: '100%', padding: '18px', borderRadius: '14px', border: 'none',
+      backgroundColor: modoAlerta ? '#ef4444' : '#a78bfa',
+      color: modoAlerta ? '#fff' : '#09090b',
+      fontSize: '18px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '2px',
+      cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+      boxShadow: modoAlerta ? '0 0 25px rgba(239, 68, 68, 0.6)' : '0 5px 20px rgba(167, 139, 250, 0.4)',
+      transition: 'all 0.2s', boxSizing: 'border-box'
+    }
+  };
+
+  return (
+    <div style={estilos.contenedorBase}>
+      
+      {/* BARRA SUPERIOR ESTRATÉGICA */}
+      <div style={estilos.topBar}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: '10px', color: '#71717a', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' }}>Objetivo</span>
+            <span style={{ fontSize: '14px', color: '#e4e4e7', fontWeight: '900' }}>Con la Letra</span>
+          </div>
+          <div style={estilos.letraCaja}>
+            {letra || '?'}
+          </div>
+        </div>
+
+        {modoAlerta ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', animation: 'pulse 1s infinite' }}>
+            <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              ¡Alerta Roja!
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef4444' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              <span style={{ fontSize: '28px', fontWeight: '900', fontVariantNumeric: 'tabular-nums' }}>
                 00:{cronometro < 10 ? `0${cronometro}` : cronometro}
               </span>
             </div>
-          ) : (
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] font-heading font-bold uppercase tracking-wider text-green-500">
-                Ronda Activa
-              </span>
-              <span className="font-sans text-xs font-semibold text-muted-text">
-                ¡Escribe rápido!
-              </span>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+            <span style={{ fontSize: '10px', color: '#0ae8c6', fontWeight: '900', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              Estado
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#0ae8c6' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0ae8c6', boxShadow: '0 0 8px #0ae8c6' }} />
+              <span style={{ fontSize: '14px', fontWeight: 'bold' }}>En Progreso</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* Formulario de entrada táctil */}
-        <div className="flex-1 px-5 py-4 flex flex-col gap-5 overflow-y-auto max-h-[55vh]">
-          {mensajeServidor && (
-            <div className="p-3 bg-primary-purple text-white text-xs font-heading font-bold text-center rounded-xl">
-              {mensajeServidor}
-            </div>
-          )}
+      {/* ÁREA DE INPUTS TÁCTICOS */}
+      <div style={estilos.scrollArea}>
+        {mensajeServidor && (
+          <div style={{ backgroundColor: 'rgba(167,139,250,0.1)', border: '1px solid #a78bfa', color: '#a78bfa', padding: '12px', borderRadius: '10px', textAlign: 'center', fontSize: '12px', fontWeight: 'bold' }}>
+            {mensajeServidor}
+          </div>
+        )}
 
-          <InputTexto
-            label="1. Nombre"
-            placeholder={`Con ${letra}...`}
+        <div style={estilos.inputWrapper}>
+          <label style={estilos.label}>1. Nombre</label>
+          <input
+            type="text"
+            placeholder={`Palabra con ${letra}...`}
+            style={{...estilos.input, opacity: pantallaCongelada ? 0.5 : 1}}
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             disabled={pantallaCongelada}
           />
+        </div>
 
-          <InputTexto
-            label="2. Apellido"
-            placeholder={`Con ${letra}...`}
+        <div style={estilos.inputWrapper}>
+          <label style={estilos.label}>2. Apellido</label>
+          <input
+            type="text"
+            placeholder={`Palabra con ${letra}...`}
+            style={{...estilos.input, opacity: pantallaCongelada ? 0.5 : 1}}
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
             disabled={pantallaCongelada}
           />
+        </div>
 
-          <InputTexto
-            label="3. Ciudad o País"
-            placeholder={`Con ${letra}...`}
+        <div style={estilos.inputWrapper}>
+          <label style={estilos.label}>3. Ciudad o País</label>
+          <input
+            type="text"
+            placeholder={`Palabra con ${letra}...`}
+            style={{...estilos.input, opacity: pantallaCongelada ? 0.5 : 1}}
             value={ciudadPais}
             onChange={(e) => setCiudadPais(e.target.value)}
             disabled={pantallaCongelada}
           />
+        </div>
 
-          <InputTexto
-            label="4. Animal"
-            placeholder={`Con ${letra}...`}
+        <div style={estilos.inputWrapper}>
+          <label style={estilos.label}>4. Animal</label>
+          <input
+            type="text"
+            placeholder={`Palabra con ${letra}...`}
+            style={{...estilos.input, opacity: pantallaCongelada ? 0.5 : 1}}
             value={animal}
             onChange={(e) => setAnimal(e.target.value)}
             disabled={pantallaCongelada}
           />
+        </div>
 
-          <InputTexto
-            label="5. Cosa"
-            placeholder={`Con ${letra}...`}
+        <div style={estilos.inputWrapper}>
+          <label style={estilos.label}>5. Cosa</label>
+          <input
+            type="text"
+            placeholder={`Palabra con ${letra}...`}
+            style={{...estilos.input, opacity: pantallaCongelada ? 0.5 : 1}}
             value={cosa}
             onChange={(e) => setCosa(e.target.value)}
             disabled={pantallaCongelada}
           />
         </div>
-
-        {/* Botón de STOP Dinámico y Táctil */}
-        <div className="p-6 bg-white border-t border-[#e6e6e6] pb-8">
-          <Boton
-            variant={estadoJuego === 'cuenta_regresiva' ? 'danger' : 'stop'}
-            onClick={enviarStop}
-            disabled={pantallaCongelada}
-          >
-            {estadoJuego === 'cuenta_regresiva' ? `¡CONGELANDO (${cronometro}s)! ⏱️` : '¡STOP! ✋'}
-          </Boton>
-        </div>
-
+        
+        {/* Espaciador inferior */}
+        <div style={{ height: '20px' }}></div>
       </div>
-    </LayoutMobile>
+
+      {/* FOOTER CON BOTÓN DE DETONACIÓN (STOP) */}
+      <div style={estilos.footer}>
+        <button
+          onClick={enviarStop}
+          disabled={pantallaCongelada}
+          style={{...estilos.btnStop, opacity: pantallaCongelada ? 0.5 : 1}}
+        >
+          {modoAlerta ? (
+            <>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              CONGELANDO ({cronometro}s)
+            </>
+          ) : pantallaCongelada ? (
+            'Tiempo Terminado'
+          ) : (
+            <>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><path d="M9 9h6v6H9z"></path></svg>
+              Presionar Stop
+            </>
+          )}
+        </button>
+      </div>
+
+    </div>
   );
 };
 

@@ -3,7 +3,6 @@ import React, { createContext, useState, useEffect, useRef } from 'react';
 export const JuegoContext = createContext();
 
 export const JuegoProvider = ({ children }) => {
-  // 🔄 PERSISTENCIA DE SESIÓN: Inicializamos buscando si ya hay credenciales guardadas en el navegador
   const [usuario, setUsuarioState] = useState(() => {
     const token = localStorage.getItem('ztop_token');
     const username = localStorage.getItem('ztop_username');
@@ -23,7 +22,6 @@ export const JuegoProvider = ({ children }) => {
 
   const socketRef = useRef(null);
 
-  // Función envolvente para actualizar el usuario tanto en memoria como en el disco duro local
   const setUsuario = (datosUsuario) => {
     if (datosUsuario) {
       localStorage.setItem('ztop_token', datosUsuario.token);
@@ -33,7 +31,6 @@ export const JuegoProvider = ({ children }) => {
       }
       setUsuarioState(datosUsuario);
     } else {
-      // Si se pasa null, significa Cierre de Sesión explícito
       localStorage.removeItem('ztop_token');
       localStorage.removeItem('ztop_username');
       localStorage.removeItem('ztop_perfil_id');
@@ -42,22 +39,19 @@ export const JuegoProvider = ({ children }) => {
   };
 
   const conectarSala = (codigoSala) => {
-    // Aseguramos que el código vaya siempre en mayúsculas al backend
     const codigoLimpio = codigoSala.toUpperCase();
-    
-    // 💡 SOLUCIÓN: Apuntamos a tu IP de red local para que el celular pueda conectarse
     const url = `ws://192.168.18.199:8000/ws/juego/${codigoLimpio}/`;
     
-    // Si ya había un socket abierto del juego anterior, lo cerramos limpiamente
     if (socketRef.current) {
       socketRef.current.close();
     }
 
-    console.log(`📡 Intentando conectar canal WebSocket en: ${url}`);
+    console.log(`📡 Conectando canal WebSocket en: ${url}`);
     socketRef.current = new WebSocket(url);
 
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log("📩 Evento recibido del servidor:", data);
       
       switch (data.status) {
         case 'ronda_iniciada':
@@ -69,6 +63,7 @@ export const JuegoProvider = ({ children }) => {
 
         case 'stop_presionado':
           setEstadoJuego('cuenta_regresiva');
+          setCronometro(10); // Asegurar que reinicie el conteo
           break;
 
         case 'congelar_pantalla':
@@ -80,13 +75,8 @@ export const JuegoProvider = ({ children }) => {
           break;
       }
     };
-
-    socketRef.current.onclose = () => {
-      console.log("🔌 WebSocket del juego desconectado del servidor.");
-    };
   };
 
-  // Manejador del conteo regresivo local de 10 segundos sincronizado con Tailwind/React
   useEffect(() => {
     let intervalo = null;
     if (estadoJuego === 'cuenta_regresiva' && cronometro > 0) {
@@ -101,17 +91,21 @@ export const JuegoProvider = ({ children }) => {
   }, [estadoJuego, cronometro]);
 
   const enviarStop = () => {
-    if (socketRef.current && estadoJuego === 'en_ronda') {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ action: 'presionar_stop' }));
     }
   };
 
+  // 💡 CORRECCIÓN CRÍTICA: Nombre del evento sincronizado con consumers.py
   const iniciarNuevaRonda = (letraSeleccionada) => {
-    if (socketRef.current) {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      console.log("🚀 Enviando señal de inicio de ronda al servidor...");
       socketRef.current.send(JSON.stringify({
-        action: 'letra_elegida_host', // Match estricto con el disparador de eventos del host
+        action: 'iniciar_ronda', // Este nombre debe coincidir con el if en consumers.py
         letra: letraSeleccionada
       }));
+    } else {
+      console.error("❌ El socket no está abierto. Estado:", socketRef.current?.readyState);
     }
   };
 
