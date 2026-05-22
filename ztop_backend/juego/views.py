@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .models import Sala, PerfilUsuario, Ronda, RespuestaJugador
-from .serializers import RegistroUsuarioSerializer, SalaSerializer, RespuestaJugadorSerializer
+from .serializers import RegistroUsuarioSerializer, SalaSerializer, RespuestaJugadorSerializer, PerfilUsuarioSerializer
 
 # 1. Endpoint para Registrar un Usuario (User + Perfil)
 class RegistroUsuarioView(APIView):
@@ -175,3 +175,22 @@ class GuardarRespuestaView(APIView):
                 "error": "Ocurrió un error inesperado en el servidor.",
                 "detalle": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# 7. Endpoint para Obtener el Perfil del Usuario Autenticado
+class PerfilUsuarioDetalleView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        print(f"🕵️‍♂️ Solicitando perfil para el usuario: {request.user.username}")
+        try:
+            # Obtenemos el perfil asociado al usuario que hace la petición
+            perfil = request.user.perfil
+            serializer = PerfilUsuarioSerializer(perfil)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except PerfilUsuario.DoesNotExist:
+            print("❌ ERROR: El usuario no tiene un perfil asociado.")
+            return Response(
+                {"error": "El usuario no tiene un perfil asociado."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )

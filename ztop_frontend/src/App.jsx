@@ -4,6 +4,7 @@ import LoginView from './views/LoginView';
 import LobbyView from './views/LobbyView';
 import JuegoView from './views/JuegoView';
 import PodioView from './views/PodioView';
+import PerfilView from './views/PerfilView'; // 💡 IMPORTAMOS LA NUEVA VISTA DE PERFIL
 
 const ContenidoApp = () => {
   const { usuario, estadoJuego, setSala } = useContext(JuegoContext);
@@ -19,8 +20,20 @@ const ContenidoApp = () => {
   switch (pantallaActual) {
     case 'login':
     case 'lobby':
-      return <LobbyView onStartGame={() => setPantallaActual('juego')} />;
+      return (
+        <LobbyView 
+          onStartGame={() => setPantallaActual('juego')} 
+          onViewProfile={() => setPantallaActual('perfil')} // 💡 CONECTAMOS EL BOTÓN DEL PERFIL
+        />
+      );
       
+    case 'perfil': // 💡 NUEVO ESTADO PARA MOSTRAR EL PERFIL
+      return (
+        <PerfilView 
+          onBackToLobby={() => setPantallaActual('lobby')} 
+        />
+      );
+
     case 'juego':
       return <JuegoView onTimeOut={() => setPantallaActual('podio')} />;
       

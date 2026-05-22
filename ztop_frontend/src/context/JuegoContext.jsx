@@ -44,13 +44,16 @@ export const JuegoProvider = ({ children }) => {
   const conectarSala = (codigoSala) => {
     // Aseguramos que el código vaya siempre en mayúsculas al backend
     const codigoLimpio = codigoSala.toUpperCase();
-    const url = `ws://127.0.0.1:8000/ws/juego/${codigoLimpio}/`;
+    
+    // 💡 SOLUCIÓN: Apuntamos a tu IP de red local para que el celular pueda conectarse
+    const url = `ws://192.168.18.199:8000/ws/juego/${codigoLimpio}/`;
     
     // Si ya había un socket abierto del juego anterior, lo cerramos limpiamente
     if (socketRef.current) {
       socketRef.current.close();
     }
 
+    console.log(`📡 Intentando conectar canal WebSocket en: ${url}`);
     socketRef.current = new WebSocket(url);
 
     socketRef.current.onmessage = (event) => {
@@ -79,7 +82,7 @@ export const JuegoProvider = ({ children }) => {
     };
 
     socketRef.current.onclose = () => {
-      print("🔌 WebSocket del juego desconectado del servidor.");
+      console.log("🔌 WebSocket del juego desconectado del servidor.");
     };
   };
 

@@ -5,7 +5,8 @@ from .views import (
     CrearSalaView, 
     DetalleSalaView, 
     UnirseSalaView, 
-    GuardarRespuestaView
+    GuardarRespuestaView,
+    PerfilUsuarioDetalleView
 )
 
 urlpatterns = [
@@ -15,4 +16,5 @@ urlpatterns = [
     path('api/sala/<str:codigo_sala>/', DetalleSalaView.as_view(), name='detalle_sala'),
     path('api/sala/<str:codigo_sala>/unirse/', UnirseSalaView.as_view(), name='unirse_sala'),
     path('api/sala/<str:codigo_sala>/responder/', GuardarRespuestaView.as_view(), name='guardar_respuesta'),
+    path('api/auth/perfil/', PerfilUsuarioDetalleView.as_view(), name='perfil_detalle'),
 ]

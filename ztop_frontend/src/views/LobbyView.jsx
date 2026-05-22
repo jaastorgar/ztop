@@ -1,28 +1,30 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { JuegoContext } from '../context/JuegoContext';
-import LayoutMobile from '../components/LayoutMobile';
-import InputTexto from '../components/InputTexto';
-import Boton from '../components/Boton';
 
-export const LobbyView = ({ onStartGame }) => {
-  const { usuario, sala, setSala, conectarSala, iniciarNuevaRonda, estadoJuego } = useContext(JuegoContext);
+// 💡 AGREGAMOS onViewProfile A LAS PROPS
+export const LobbyView = ({ onStartGame, onViewProfile }) => {
+  const { 
+    usuario, 
+    sala, 
+    setSala, 
+    conectarSala, 
+    iniciarNuevaRonda, 
+    estadoJuego 
+  } = useContext(JuegoContext);
   
-  // Estados para cuando el usuario entra a la app y quiere unirse a un PIN existente
   const [codigoInput, setCodigoInput] = useState('');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
 
-  // Forzamos el Hostname completo del backend para evitar conflictos de ruteo
-  const API_URL = 'http://127.0.0.1:8000/api/sala';
+  // 💡 CONFIGURADO TÁCTICAMENTE PARA TU DISPOSITIVO MÓVIL EN LA RED LOCAL
+  const API_URL = 'http://192.168.18.199:8000/api/sala';
 
-  // Redireccionar automáticamente si el WebSocket cambia el estado a 'en_ronda'
   useEffect(() => {
     if (estadoJuego === 'en_ronda' && onStartGame) {
       onStartGame();
     }
   }, [estadoJuego, onStartGame]);
 
-  // 1. Acción de Crear una Sala Nueva (Ser el Host)
   const manejarCrearSala = async () => {
     setError('');
     setCargando(true);
@@ -37,36 +39,35 @@ export const LobbyView = ({ onStartGame }) => {
       const datos = await respuesta.json();
 
       if (respuesta.ok) {
-        setSala(datos); // Guardamos la info de la sala (codigo, creador_username)
-        conectarSala(datos.codigo); // Abrimos el canal WebSocket en tiempo real
+        setSala({
+          codigo: datos.codigo,
+          esCreador: true,
+          creador_username: usuario.username
+        });
+        conectarSala(datos.codigo);
       } else {
-        setError(datos.error || 'No se pudo crear la sala.');
+        setError(datos.error || 'Error al iniciar sala.');
       }
     } catch (err) {
-      setError('Error de conexión con el servidor.');
+      setError('Error de red: Servidor central fuera de línea.');
     } finally {
       setCargando(false);
     }
   };
 
-  // 2. Acción de Unirse a una Sala Existente mediante PIN
   const manejarUnirseSala = async (e) => {
     e.preventDefault();
-    
-    // Limpiamos espacios antes de validar la longitud exacta
-    const codigoLimpio = codigoInput.trim().toUpperCase();
-
-    if (!codigoLimpio || codigoLimpio.length !== 6) {
-      setError('El código PIN debe tener exactamente 6 caracteres.');
+    if (!codigoInput) {
+      setError('Ingresa un código PIN.');
       return;
     }
 
     setError('');
     setCargando(true);
+    const pinLimpio = codigoInput.toUpperCase().trim();
 
     try {
-      // Endpoint verificado y sincronizado con urls.py de Django
-      const respuesta = await fetch(`${API_URL}/${codigoLimpio}/unirse/`, {
+      const respuesta = await fetch(`${API_URL}/${pinLimpio}/unirse/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,126 +77,278 @@ export const LobbyView = ({ onStartGame }) => {
       const datos = await respuesta.json();
 
       if (respuesta.ok) {
-        setSala(datos.sala);
-        conectarSala(datos.sala.codigo); // Conectamos al mismo WebSocket de la sala
+        setSala({
+          codigo: pinLimpio,
+          esCreador: false,
+          creador_username: datos.creador_username || 'Host'
+        });
+        conectarSala(pinLimpio);
       } else {
-        setError(datos.error || 'Código de sala inválido o partida ya iniciada.');
+        setError(datos.error || 'PIN inválido o sala inactiva.');
       }
     } catch (err) {
-      setError('Error al intentar unirse a la sala.');
+      setError('Fallo en la interceptación de datos.');
     } finally {
       setCargando(false);
     }
   };
 
-  // 3. Lanzar el juego (Solo permitido para el creador de la sala)
   const manejarIniciarJuego = () => {
-    const letrasDisponibles = ['A', 'B', 'C', 'D', 'E', 'M', 'P', 'R', 'S', 'T'];
-    const letraAleatoria = letrasDisponibles[Math.floor(Math.random() * letrasDisponibles.length)];
-    
-    // Se envía la señal a Django Channels
+    const abecedario = 'ABCDEFGHIJLMNOPRSTUV';
+    const letraAleatoria = abecedario[Math.floor(Math.random() * abecedario.length)];
     iniciarNuevaRonda(letraAleatoria);
   };
 
-  const esCreador = sala && sala.creador_username === usuario?.username;
+  const esCreador = sala?.esCreador;
+
+  // ESTILOS EN LÍNEA
+  const estilos = {
+    contenedorBase: {
+      position: 'fixed',
+      inset: 0,
+      width: '100vw',
+      height: '100vh',
+      backgroundColor: '#09090b', 
+      color: '#e4e4e7',
+      padding: '24px 20px',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'space-between',
+      boxSizing: 'border-box',
+      zIndex: 9999,
+      overflowY: 'auto'
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid #1f1f22',
+      paddingBottom: '16px'
+    },
+    tituloZtop: {
+      margin: 0,
+      fontSize: '22px',
+      fontWeight: '900',
+      letterSpacing: '-0.5px',
+      background: 'linear-gradient(to right, #a78bfa, #0ae8c6)', 
+      WebkitBackgroundClip: 'text',
+      WebkitTextFillColor: 'transparent'
+    },
+    btnPerfil: {
+      backgroundColor: '#18181b',
+      border: '1px solid #27272a',
+      color: '#a1a1aa',
+      padding: '8px 14px',
+      borderRadius: '20px', 
+      fontSize: '12px',
+      fontWeight: 'bold',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      transition: 'all 0.2s'
+    },
+    tarjetaMorada: {
+      background: 'linear-gradient(145deg, #141416 0%, #0d0d0f 100%)',
+      border: '1px solid rgba(167, 139, 250, 0.4)',
+      borderRadius: '16px',
+      padding: '20px',
+      marginBottom: '20px',
+      boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+      width: '100%',
+      maxWidth: '400px',
+      margin: '0 auto 20px auto',
+      boxSizing: 'border-box'
+    },
+    tarjetaTurquesa: {
+      background: 'linear-gradient(145deg, #141416 0%, #0d0d0f 100%)',
+      border: '1px solid rgba(10, 232, 198, 0.4)',
+      borderRadius: '16px',
+      padding: '20px',
+      boxShadow: '0 8px 25px rgba(0,0,0,0.4)',
+      width: '100%',
+      maxWidth: '400px',
+      margin: '0 auto',
+      boxSizing: 'border-box'
+    },
+    subtituloCard: {
+      margin: '0',
+      fontSize: '14px',
+      fontWeight: '900',
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    descripcionCard: {
+      margin: '10px 0 16px 0',
+      fontSize: '12px',
+      color: '#a1a1aa',
+      lineHeight: '1.5'
+    },
+    inputPin: {
+      width: '100%',
+      backgroundColor: '#09090b',
+      border: '1px solid #27272a',
+      borderRadius: '10px',
+      padding: '14px',
+      color: '#0AE8C6',
+      textAlign: 'center',
+      fontSize: '15px',
+      fontWeight: '900',
+      letterSpacing: '4px',
+      outline: 'none',
+      boxSizing: 'border-box',
+      marginBottom: '12px'
+    },
+    btnAccion: {
+      width: '100%',
+      padding: '14px',
+      borderRadius: '10px',
+      border: 'none',
+      fontSize: '13px',
+      fontWeight: 'bold',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      cursor: 'pointer',
+      boxSizing: 'border-box',
+      transition: 'all 0.2s'
+    }
+  };
 
   return (
-    <LayoutMobile>
-      <div className="flex-1 flex flex-col justify-between p-6 bg-white">
+    <div style={estilos.contenedorBase}>
+      
+      {/* HEADER / NAVEGACIÓN */}
+      <header style={estilos.header}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#0ae8c6', boxShadow: '0 0 10px #0ae8c6' }} />
+          <h1 style={estilos.tituloZtop}>ZTOP!</h1>
+        </div>
         
-        {/* Si el usuario NO está en ninguna sala, mostramos la interfaz del Home (Unirse / Crear) */}
-        {!sala ? (
-          <div className="flex-1 flex flex-col justify-between my-auto">
-            <div className="flex flex-col items-center pt-6">
-              <h2 className="font-heading font-bold text-2xl text-dark-text tracking-tight">
-                ¡Hola, <span className="text-secondary-purple">{usuario?.username}</span>!
-              </h2>
-              <p className="font-sans text-sm text-muted-text text-center mt-1">
-                Ingresa el PIN de tus amigos o crea una nueva sala para competir.
-              </p>
+        {/* BOTÓN DE PERFIL - AHORA REDIRIGE A LA VISTA PERFIL */}
+        <button 
+          type="button" 
+          onClick={onViewProfile} // Llama a la función de cambio de vista
+          style={estilos.btnPerfil}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          @{usuario?.username?.toLowerCase()}
+        </button>
+      </header>
+
+      {/* ÁREA CENTRAL DE PANELES */}
+      {!sala ? (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          
+          {error && (
+            <div style={{ maxWidth: '400px', margin: '0 auto 16px auto', width: '100%', boxSizing: 'border-box', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#f87171', fontSize: '12px', padding: '10px', borderRadius: '10px', textAlign: 'center' }}>
+              {error}
             </div>
+          )}
 
-            <form onSubmit={manejarUnirseSala} className="flex flex-col gap-4 my-8">
-              {error && (
-                <div className="p-3 bg-red-50 text-red-500 rounded-xl text-sm font-semibold text-center">
-                  {error}
-                </div>
-              )}
+          {/* TARJETA: CREAR PARTIDA (MORADA) */}
+          <div style={estilos.tarjetaMorada}>
+            <h3 style={{ ...estilos.subtituloCard, color: '#a78bfa' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+                <path d="M12 12h.01"></path>
+                <path d="M17 12h.01"></path>
+                <path d="M7 12h.01"></path>
+              </svg>
+              Protocolo Host
+            </h3>
+            <p style={estilos.descripcionCard}>Levantar una sesión maestra en los servidores centrales.</p>
+            <button
+              type="button"
+              onClick={manejarCrearSala}
+              disabled={cargando}
+              style={{ ...estilos.btnAccion, backgroundColor: '#4A008B', color: '#ffffff' }}
+            >
+              {cargando ? 'Configurando...' : 'Crear Nueva Sala'}
+            </button>
+          </div>
 
-              <InputTexto
-                label="Código PIN de la Sala"
-                placeholder="Ej: ZT89X2"
+          {/* TARJETA: VINCULAR NODOS (TURQUESA) */}
+          <div style={estilos.tarjetaTurquesa}>
+            <h3 style={{ ...estilos.subtituloCard, color: '#0AE8C6' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ae8c6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 7a2 2 0 0 1 2 2"></path><path d="M15 3a6 6 0 0 1 6 6"></path><path d="M11 17l-5.3-5.3a2 2 0 0 0-2.8 0c-.8.8-.8 2 0 2.8l5.3 5.3"></path><path d="M16 22l5.3-5.3a2 2 0 0 0 0-2.8c-.8-.8-2-.8-2.8 0L13.2 19"></path>
+              </svg>
+              Vincular Nodo
+            </h3>
+            <p style={estilos.descripcionCard}>Infiltrarse en una sala activa usando el código PIN de tus amigos.</p>
+            <form onSubmit={manejarUnirseSala}>
+              <input
+                type="text"
+                maxLength={6}
+                placeholder="INGRESA PIN"
                 value={codigoInput}
                 onChange={(e) => setCodigoInput(e.target.value)}
                 disabled={cargando}
+                style={estilos.inputPin}
               />
-
-              <Boton type="submit" variant="primary" disabled={cargando}>
-                {cargando ? 'Buscando...' : 'Unirse a la Sala'}
-              </Boton>
+              <button
+                type="submit"
+                disabled={cargando}
+                style={{ ...estilos.btnAccion, backgroundColor: '#0AE8C6', color: '#09090b' }}
+              >
+                Unirse a Partida
+              </button>
             </form>
-
-            <div className="flex flex-col gap-3 pb-4">
-              <div className="relative flex py-2 items-center">
-                <div className="flex-grow border-t border-gray-200"></div>
-                <span className="flex-shrink mx-4 text-gray-400 text-xs font-bold uppercase tracking-wider">o también</span>
-                <div className="flex-grow border-t border-gray-200"></div>
-              </div>
-
-              <Boton variant="secondary" onClick={manejarCrearSala} disabled={cargando}>
-                Crear Sala Nueva (Host)
-              </Boton>
-            </div>
           </div>
-        ) : (
+
+        </div>
+      ) : (
+        /* LOBBY INTERNO (ESPERA) */
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '30px 0' }}>
           
-          // --- PANTALLA DE LOBBY / SALA DE ESPERA ACTIVA ---
-          <div className="flex-1 flex flex-col justify-between h-full pt-6">
-            <div className="flex flex-col items-center text-center">
-              <span className="bg-light-purple text-secondary-purple text-xs px-3 py-1.5 rounded-full font-heading font-bold uppercase tracking-wider">
-                Lobby de Espera
-              </span>
-              
-              <div className="my-8 p-6 bg-light-purple/40 border-2 border-dashed border-secondary-purple/30 rounded-3xl w-full flex flex-col items-center">
-                <span className="text-xs font-heading font-bold uppercase tracking-widest text-muted-text mb-1">
-                  Código para compartir
-                </span>
-                <h3 className="font-heading font-black text-5xl tracking-widest text-primary-purple select-all">
-                  {sala.codigo}
-                </h3>
-              </div>
-
-              <p className="font-sans text-sm text-dark-text max-w-[80%]">
-                {esCreador 
-                  ? 'Eres el administrador de la sala. Espera a que todos se conecten y dale a iniciar.' 
-                  : `Esperando que el administrador (${sala.creador_username}) inicie la ronda...`
-                }
-              </p>
+          <div style={{ backgroundColor: '#141416', border: '1px solid #27272a', borderRadius: '20px', padding: '30px 20px', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.4)', maxWidth: '400px', margin: '0 auto', width: '100%' }}>
+            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#71717a', letterSpacing: '1.5px', textTransform: 'uppercase' }}>
+              Código de Sala Activo
+            </span>
+            <div style={{ fontSize: '48px', fontWeight: '900', letterSpacing: '8px', color: '#ffffff', margin: '16px 0' }}>
+              {sala.codigo}
             </div>
-
-            <div className="flex flex-col items-center justify-center my-auto">
-              <div className="w-16 h-16 border-4 border-primary-purple border-t-turquoise rounded-full animate-spin"></div>
-              <span className="font-sans text-xs font-semibold text-gray-400 mt-4 animate-pulse">
-                Sincronizando con PostgreSQL...
-              </span>
-            </div>
-
-            <div className="pb-4">
-              {esCreador ? (
-                <Boton variant="primary" onClick={manejarIniciarJuego}>
-                  ¡Iniciar Partida!
-                </Boton>
-              ) : (
-                <div className="bg-gray-50 border border-gray-100 p-4 rounded-xl text-center font-sans text-sm text-gray-400 font-medium">
-                  🔒 Controles del Host deshabilitados
-                </div>
-              )}
-            </div>
+            <p style={{ fontSize: '13px', color: '#a1a1aa', margin: 0, lineHeight: '1.5' }}>
+              {esCreador 
+                ? 'Eres el Host. Espera a tus oponentes en el lobby antes de iniciar.' 
+                : `Sincronizado a la sesión de @${sala.creador_username.toLowerCase()}.`
+              }
+            </p>
           </div>
-        )}
 
-      </div>
-    </LayoutMobile>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: 'auto' }}>
+            <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '3px solid #27272a', borderTopColor: '#a78bfa', animation: 'spin 1s linear infinite' }} className="animate-spin" />
+            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#71717a', letterSpacing: '1px', marginTop: '16px', textTransform: 'uppercase' }}>
+              Sincronizando...
+            </span>
+          </div>
+
+          <div style={{ maxWidth: '400px', margin: '0 auto', width: '100%' }}>
+            {esCreador ? (
+              <button
+                type="button"
+                onClick={manejarIniciarJuego}
+                style={{ ...estilos.btnAccion, backgroundColor: '#10b981', color: '#09090b', padding: '16px', fontSize: '14px', borderRadius: '12px' }}
+              >
+                Lanzar Partida 🚀
+              </button>
+            ) : (
+              <div style={{ backgroundColor: '#09090b', border: '1px dashed #27272a', padding: '16px', borderRadius: '12px', textTransform: 'uppercase', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', color: '#52525b', letterSpacing: '1px' }}>
+                Esperando orden del Host...
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+    </div>
   );
 };
 
