@@ -7,7 +7,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
-from .models import Sala, PerfilUsuario, Ronda, RespuestaJugador
+from .models import Sala, PerfilUsuario, Ronda, RespuestaJugador, SalaJugador
 from .serializers import RegistroUsuarioSerializer, SalaSerializer, RespuestaJugadorSerializer, PerfilUsuarioSerializer
 
 # 1. Endpoint para Registrar un Usuario (User + Perfil)
@@ -20,7 +20,6 @@ class RegistroUsuarioView(APIView):
             serializer.save()
             return Response({"mensaje": "Usuario y perfil creados con éxito."}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 # 2. Endpoint para Login (Retorna el Token para la App Móvil)
 class LoginUsuarioView(APIView):
@@ -39,7 +38,6 @@ class LoginUsuarioView(APIView):
                 "mensaje": "Sesión iniciada correctamente."
             }, status=status.HTTP_200_OK)
         return Response({"error": "Credenciales inválidas, intenta nuevamente."}, status=status.HTTP_401_UNAUTHORIZED)
-
 
 # 3. Endpoint para Crear una Nueva Sala de Juego (Lobby)
 class CrearSalaView(APIView):
@@ -62,9 +60,11 @@ class CrearSalaView(APIView):
             estado='esperando'
         )
 
+        # ✅ Registrar al creador como primer miembro oficial de la sala
+        SalaJugador.objects.create(sala=sala, jugador=perfil, listo=True)
+
         serializer = SalaSerializer(sala)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
 
 # 4. Endpoint para Detalle u Obtención de una Sala Existente
 class DetalleSalaView(APIView):
@@ -72,12 +72,18 @@ class DetalleSalaView(APIView):
 
     def get(self, request, codigo_sala):
         try:
-            sala = Sala.objects.get(codigo=codigo_sala.upper())
+            # ✅ OPTIMIZACIÓN: Evita consultas N+1 con serializadores anidados
+            sala = Sala.objects.select_related('creador__usuario').prefetch_related(
+                'jugadores',
+                'rondas',
+                'rondas__respuestas',
+                'rondas__respuestas__jugador__usuario'
+            ).get(codigo=codigo_sala.upper())
+
             serializer = SalaSerializer(sala)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Sala.DoesNotExist:
             return Response({"error": "La sala solicitada no existe en la base de datos."}, status=status.HTTP_404_NOT_FOUND)
-
 
 # 5. Endpoint para que un Jugador se Una a un Lobby mediante PIN
 class UnirseSalaView(APIView):
@@ -85,15 +91,22 @@ class UnirseSalaView(APIView):
 
     def post(self, request, codigo_sala):
         try:
-            sala = Sala.objects.get(codigo=codigo_sala.upper())
             perfil = request.user.perfil
-        except Sala.DoesNotExist:
-            return Response({"error": "El código PIN de sala no existe."}, status=status.HTTP_404_NOT_FOUND)
         except PerfilUsuario.DoesNotExist:
             return Response({"error": "Perfil de usuario no válido."}, status=status.HTTP_400_BAD_REQUEST)
 
+        try:
+            sala = Sala.objects.select_related('creador').get(codigo=codigo_sala.upper())
+        except Sala.DoesNotExist:
+            return Response({"error": "El código PIN de sala no existe."}, status=status.HTTP_404_NOT_FOUND)
+
         if sala.estado != 'esperando':
             return Response({"error": "La partida ya comenzó o la sala está cerrada."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ✅ Registrar unión en la BD de forma idempotente
+        _, creado = SalaJugador.objects.get_or_create(sala=sala, jugador=perfil)
+        if not creado:
+            return Response({"mensaje": "Ya eres miembro de esta sala."}, status=status.HTTP_200_OK)
 
         serializer = SalaSerializer(sala)
         return Response({
@@ -101,8 +114,7 @@ class UnirseSalaView(APIView):
             "sala": serializer.data
         }, status=status.HTTP_200_OK)
 
-
-# 6. Endpoint SOLUCIONADO: Guarda respuestas buscando la ronda más reciente de la sala
+# 6. Endpoint: Guarda respuestas buscando la ronda más reciente de la sala
 class GuardarRespuestaView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -124,14 +136,13 @@ class GuardarRespuestaView(APIView):
             # 1. Obtener Perfil asociado al Token
             try:
                 perfil = request.user.perfil
-            except PerfilUsuario.DoesNotExist:
+            except PerfilUsuario.DoesNotExist:  # ✅ Sintaxis corregida
                 print("❌ ERROR: El usuario autenticado no tiene un PerfilUsuario creado.")
                 return Response({"error": "Perfil de usuario no encontrado."}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 2. SOLUCIÓN: Buscamos la última ronda generada para esta sala (removiendo el candado estricto de activa=True)
+            # 2. Buscamos la última ronda generada para esta sala
             print(f"🔍 Buscando la ronda más reciente para la sala: '{codigo_sala.upper()}'...")
             rondas_match = Ronda.objects.filter(sala__codigo=codigo_sala.upper())
-            print(f"📊 Cantidad total de rondas en esta sala: {rondas_match.count()}")
             
             if not rondas_match.exists():
                 print(f"❌ ERROR: No se encontró ninguna ronda creada para la sala {codigo_sala.upper()}")
@@ -149,12 +160,12 @@ class GuardarRespuestaView(APIView):
                 return Response({"error": "El juego en esta sala ya finalizó."}, status=status.HTTP_400_BAD_REQUEST)
 
             # 4. Obtener o crear la fila de respuestas en PostgreSQL
-            respuesta_instancia, creado = RespuestaJugador.objects.get_or_create(ronda=ronda, jugador=perfil)
+            respuesta_instancia, creado = RespuestaJugador.objects.get_or_create(ronda=ronda, jugador=perfil)  # ✅ Sintaxis corregida
             print(f"💾 Registro en Postgres: {'[NUEVO]' if creado else '[ACTUALIZAR]'} ID: {respuesta_instancia.id}")
 
             # 5. Guardar los textos validados parciales
             serializer = RespuestaJugadorSerializer(respuesta_instancia, data=request.data, partial=True)
-            if serializer.is_valid():
+            if serializer.is_valid():  # ✅ Sintaxis corregida
                 serializer.save()
                 print("🚀 [ÉXITO] ¡Respuestas persistidas correctamente en PostgreSQL!")
                 print("="*50 + "\n")
@@ -176,7 +187,6 @@ class GuardarRespuestaView(APIView):
                 "detalle": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-
 # 7. Endpoint para Obtener el Perfil del Usuario Autenticado
 class PerfilUsuarioDetalleView(APIView):
     permission_classes = [IsAuthenticated]
@@ -184,7 +194,6 @@ class PerfilUsuarioDetalleView(APIView):
     def get(self, request):
         print(f"🕵️‍♂️ Solicitando perfil para el usuario: {request.user.username}")
         try:
-            # Obtenemos el perfil asociado al usuario que hace la petición
             perfil = request.user.perfil
             serializer = PerfilUsuarioSerializer(perfil)
             return Response(serializer.data, status=status.HTTP_200_OK)

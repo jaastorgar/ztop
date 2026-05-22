@@ -2,161 +2,204 @@ import json
 import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
-from .models import Sala, Ronda
+from django.db import transaction
+from .models import Sala, Ronda, RespuestaJugador, PerfilUsuario
+
+# Estado en memoria para desarrollo
+_salas_activas = {}
 
 class JuegoConsumer(AsyncWebsocketConsumer):
-    # Diccionario en memoria para controlar el estado visual de los WebSockets
-    salas_activas = {}
+    
+    async def connect(self):
+        self.sala_codigo = self.scope['url_route']['kwargs']['sala_codigo'].upper()
+        self.sala_group_name = f'juego_{self.sala_codigo}'
 
-    # --- Métodos de interacción con PostgreSQL usando adaptadores asíncronos ---
+        user = self.scope.get("user")
+        if not user or not user.is_authenticated:
+            await self.close()
+            return
+
+        if self.sala_codigo not in _salas_activas:
+            _salas_activas[self.sala_codigo] = {
+                'estado': 'esperando',
+                'stop_solicitado_por': None,
+                'temporizador_task': None
+            }
+
+        await self.channel_layer.group_add(self.sala_group_name, self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        if self.sala_codigo in _salas_activas:
+            task = _salas_activas[self.sala_codigo].get('temporizador_task')
+            if task and not task.done():
+                task.cancel()
+
+        await self.channel_layer.group_discard(self.sala_group_name, self.channel_name)
+
+    async def receive(self, text_data):
+        try:
+            data = json.loads(text_data)
+            evento = data.get('action')
+
+            if evento == 'iniciar_ronda':
+                letra = data.get('letra', 'A')
+                await self._handle_iniciar_ronda(letra)
+            elif evento == 'presionar_stop':
+                await self._handle_presionar_stop()
+            elif evento == 'siguiente_ronda':
+                await self._handle_siguiente_ronda()
+            else:
+                await self.send(text_data=json.dumps({'error': 'Acción no reconocida'}))
+        except json.JSONDecodeError:
+            await self.send(text_data=json.dumps({'error': 'JSON inválido'}))
+
+    async def _handle_iniciar_ronda(self, letra):
+        estado = _salas_activas.get(self.sala_codigo, {}).get('estado')
+        if estado != 'esperando' and estado != 'terminada':
+            return
+
+        success = await self.crear_ronda_en_postgres(self.sala_codigo, letra)
+        if not success: return
+
+        _salas_activas[self.sala_codigo]['estado'] = 'en_ronda'
+        await self.channel_layer.group_send(
+            self.sala_group_name, {'type': 'notificar_inicio', 'letra': letra}
+        )
+
+    async def _handle_presionar_stop(self):
+        estado = _salas_activas.get(self.sala_codigo, {}).get('estado')
+        if estado != 'en_ronda': return
+
+        _salas_activas[self.sala_codigo]['estado'] = 'cuenta_regresiva'
+        _salas_activas[self.sala_codigo]['stop_solicitado_por'] = self.channel_name
+
+        await self.channel_layer.group_send(
+            self.sala_group_name, 
+            {'type': 'notificar_cuenta_regresiva', 'mensaje': '¡STOP! 10 segundos para terminar.'}
+        )
+
+        task = asyncio.create_task(self._temporizador_evaluar())
+        _salas_activas[self.sala_codigo]['temporizador_task'] = task
+
+    async def _temporizador_evaluar(self):
+        try:
+            await asyncio.sleep(10)
+            _salas_activas[self.sala_codigo]['estado'] = 'evaluacion'
+
+            # 🧮 Calcular puntajes automáticamente
+            await self.calcular_y_guardar_puntajes(self.sala_codigo)
+            resultados = await self.obtener_resultados_ronda(self.sala_codigo)
+
+            await self.channel_layer.group_send(
+                self.sala_group_name, 
+                {'type': 'notificar_resultados', 'resultados': resultados}
+            )
+
+            await self.desactivar_ronda_en_postgres(self.sala_codigo)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            print(f"⚠️ Error en temporizador: {str(e)}")
 
     @database_sync_to_async
-    def crear_ronda_en_postgres(self, codigo_sala, letra_seleccionada):
+    @transaction.atomic
+    def crear_ronda_en_postgres(self, codigo_sala, letra):
         try:
-            sala = Sala.objects.get(codigo=codigo_sala.upper())
-            
-            # Cambiamos el estado de la sala a 'jugando' en la Base de Datos
-            sala.estado = 'jugando'
+            sala = Sala.objects.select_for_update().get(codigo=codigo_sala)
+            sala.estado = 'en_ronda'
             sala.save()
-
-            # Calculamos el número de ronda contando las preexistentes
-            numero_siguiente = Ronda.objects.filter(sala=sala).count() + 1
-            
-            # Insertamos la nueva ronda de forma persistente en PostgreSQL
-            nueva_ronda = Ronda.objects.create(
-                sala=sala,
-                numero_ronda=numero_siguiente,
-                letra=letra_seleccionada,
-                activa=True
-            )
-            print(f"✨ [DATABASE] Ronda ID {nueva_ronda.id} (Letra {letra_seleccionada}) guardada en Postgres para sala {codigo_sala}")
+            num = Ronda.objects.filter(sala=sala).count() + 1
+            Ronda.objects.create(sala=sala, numero_ronda=num, letra=letra, activa=True)
             return True
         except Exception as e:
-            print(f"💥 [DATABASE ERROR] Error al registrar ronda en Postgres: {str(e)}")
+            print(f"💥 Error creando ronda: {e}")
             return False
 
     @database_sync_to_async
     def desactivar_ronda_en_postgres(self, codigo_sala):
         try:
-            # Al expirar los 10 segundos, desactivamos la ronda en PostgreSQL
-            # para sincronizar el cierre estricto del backend
-            rondas_activas = Ronda.objects.filter(sala__codigo=codigo_sala.upper(), activa=True)
-            if rondas_activas.exists():
-                ronda = rondas_activas.latest('id')
-                ronda.activa = False
-                ronda.save()
-                print(f"🔒 [DATABASE] Ronda ID {ronda.id} marcada como INACTIVA (activa=False) en Postgres.")
-                return True
-            return False
+            ronda = Ronda.objects.filter(sala__codigo=codigo_sala, activa=True).latest('id')
+            ronda.activa = False
+            ronda.save()
+            return True
+        except: return False
+
+    # 🧠 LÓGICA DE PUNTAJE (100 único, 50 repetido, 0 vacío)
+    @database_sync_to_async
+    def calcular_y_guardar_puntajes(self, codigo_sala):
+        try:
+            ronda = Ronda.objects.filter(sala__codigo=codigo_sala, activa=True).latest('id')
+            respuestas = list(RespuestaJugador.objects.filter(ronda=ronda).select_related('jugador'))
+            if not respuestas: return True
+
+            categorias = ['nombre', 'apellido', 'ciudad_pais', 'animal', 'cosa']
+            pts_fields = [f'puntos_{c}' for c in categorias]
+
+            # Resetear puntos previos
+            RespuestaJugador.objects.filter(ronda=ronda).update(**{f: 0 for f in pts_fields}, total_puntos_ronda=0)
+
+            for cat, pts_field in zip(categorias, pts_fields):
+                agrupados = {}
+                for resp in respuestas:
+                    val = getattr(resp, cat, '').strip().lower()
+                    if val: agrupados.setdefault(val, []).append(resp)
+
+                for val, group in agrupados.items():
+                    pts = 100 if len(group) == 1 else 50
+                    RespuestaJugador.objects.filter(id__in=[r.id for r in group]).update(**{pts_field: pts})
+
+            # Calcular totales y actualizar perfil
+            for resp in respuestas:
+                total = sum(getattr(resp, f, 0) for f in pts_fields)
+                resp.total_puntos_ronda = total
+                resp.save(update_fields=['total_puntos_ronda'])
+
+                resp.jugador.puntaje_total += total
+                resp.jugador.partidas_jugadas += 1
+                resp.jugador.save(update_fields=['puntaje_total', 'partidas_jugadas'])
+
+            return True
         except Exception as e:
-            print(f"💥 [DATABASE ERROR] No se pudo desactivar la ronda: {str(e)}")
+            print(f"💥 Error calculando puntajes: {e}")
             return False
 
-    # --- Métodos del Ciclo de Vida del WebSocket ---
-
-    async def connect(self):
-        self.sala_codigo = self.scope['url_route']['kwargs']['sala_codigo'].upper()
-        self.sala_group_name = f'juego_{self.sala_codigo}'
-
-        # Inicializar el estado de la sala si es nueva
-        if self.sala_codigo not in self.salas_activas:
-            self.salas_activas[self.sala_codigo] = {
-                'estado': 'esperando',  # esperando, en_ronda, cuenta_regresiva, terminada
-                'stop_solicitado_por': None
-            }
-
-        # Unirse al grupo de la sala
-        await self.channel_layer.group_add(
-            self.sala_group_name,
-            self.channel_name
-        )
-        await self.accept()
-
-    async def disconnect(self, close_code):
-        # Abandonar el grupo de la sala
-        await self.channel_layer.group_discard(
-            self.sala_group_name,
-            self.channel_name
-        )
-
-    async def receive(self, text_data):
-        data = json.loads(text_data)
-        evento = data.get('action')
-
-        if evento == 'iniciar_ronda':
-            letra_elegida = data.get('letra', 'A')
-            
-            # 1. Forzamos la persistencia real en PostgreSQL antes de mover las pantallas
-            await self.crear_ronda_en_postgres(self.sala_codigo, letra_elegida)
-
-            # 2. Cambiamos el estado en la memoria volatil
-            self.salas_activas[self.sala_codigo]['estado'] = 'en_ronda'
-            
-            # 3. Notificamos al grupo de React
-            await self.channel_layer.group_send(
-                self.sala_group_name,
-                {
-                    'type': 'notificar_inicio',
-                    'letra': letra_elegida
-                }
-            )
-
-        elif evento == 'presionar_stop':
-            estado_actual = self.salas_activas[self.sala_codigo]['estado']
-            
-            # Solo permitir el Stop si la ronda está activamente en curso
-            if estado_actual == 'en_ronda':
-                self.salas_activas[self.sala_codigo]['estado'] = 'cuenta_regresiva'
-                self.salas_activas[self.sala_codigo]['stop_solicitado_por'] = self.channel_name
-
-                # 1. Avisar inmediatamente a todos que inició la cuenta regresiva de 10s
-                await self.channel_layer.group_send(
-                    self.sala_group_name,
-                    {
-                        'type': 'notificar_cuenta_regresiva',
-                        'mensaje': '¡STOP! Quedan 10 segundos para terminar de escribir.'
-                    }
-                )
-
-                # 2. Lanzamos el temporizador asíncrono no bloqueante nativo de asyncio
-                asyncio.create_task(self.temporizador_congelar_pantalla_async())
-
-    async def temporizador_congelar_pantalla_async(self):
-        # Espera asíncrona perfecta de 10 segundos sin congelar el hilo del servidor daphne
-        await asyncio.sleep(10)
+    @database_sync_to_async
+    def obtener_resultados_ronda(self, codigo_sala):
+        ronda = Ronda.objects.filter(sala__codigo=codigo_sala).latest('id')
+        respuestas = RespuestaJugador.objects.filter(ronda=ronda).select_related('jugador__usuario')
         
-        # Cambiar estado en memoria
-        self.salas_activas[self.sala_codigo]['estado'] = 'terminada'
+        data = []
+        for r in respuestas:
+            data.append({
+                'jugador': r.jugador.username,
+                'puntaje_total_acumulado': r.jugador.puntaje_total,
+                'total_ronda': r.total_puntos_ronda,
+                'detalles': {
+                    'nombre': r.nombre, 'pts': r.puntos_nombre,
+                    'apellido': r.apellido, 'pts': r.puntos_apellido,
+                    'ciudad_pais': r.ciudad_pais, 'pts': r.puntos_ciudad_pais,
+                    'animal': r.animal, 'pts': r.puntos_animal,
+                    'cosa': r.cosa, 'pts': r.puntos_cosa
+                }
+            })
+        return sorted(data, key=lambda x: x['total_ronda'], reverse=True)
 
-        # 3. Notificamos el congelamiento a React para que dispare los POSTs del formulario
+    async def _handle_siguiente_ronda(self):
+        _salas_activas[self.sala_codigo]['estado'] = 'esperando'
         await self.channel_layer.group_send(
-            self.sala_group_name,
-            {
-                'type': 'notificar_congelamiento',
-                'mensaje': 'TIEMPO FUERA. Pantallas bloqueadas. Guardando respuestas...'
-            }
+            self.sala_group_name, {'type': 'notificar_listo_siguiente', 'mensaje': 'Nueva ronda lista. Creador puede iniciar.'}
         )
 
-        # 4. Desactivamos la ronda en PostgreSQL un milisegundo después para dejar el registro cerrado
-        await self.desactivar_ronda_en_postgres(self.sala_codigo)
-
-    # --- Métodos de gestión de eventos enviados al grupo ---
-
+    # 📡 Handlers de Grupo
     async def notificar_inicio(self, event):
-        await self.send(text_data=json.dumps({
-            'status': 'ronda_iniciada',
-            'letra': event['letra']
-        }))
+        await self.send(text_data=json.dumps({'status': 'ronda_iniciada', 'letra': event['letra']}))
 
     async def notificar_cuenta_regresiva(self, event):
-        await self.send(text_data=json.dumps({
-            'status': 'stop_presionado',
-            'segundos_restantes': 10,
-            'mensaje': event['mensaje']
-        }))
+        await self.send(text_data=json.dumps({'status': 'stop_presionado', 'segundos_restantes': 10, 'mensaje': event['mensaje']}))
 
-    async def notificar_congelamiento(self, event):
-        await self.send(text_data=json.dumps({
-            'status': 'congelar_pantalla',
-            'mensaje': event['mensaje']
-        }))
+    async def notificar_resultados(self, event):
+        await self.send(text_data=json.dumps({'status': 'resultados_ronda', 'resultados': event['resultados']}))
+
+    async def notificar_listo_siguiente(self, event):
+        await self.send(text_data=json.dumps({'status': 'listo_siguiente_ronda', 'mensaje': event['mensaje']}))

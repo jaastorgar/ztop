@@ -1,20 +1,18 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.db import transaction
 from .models import PerfilUsuario, Sala, Ronda, RespuestaJugador
 
-# 1. Serializador para el Perfil de Usuario
 class PerfilUsuarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = PerfilUsuario
         fields = [
-            'id', 'username', 'nombre_completo', 'email', 
-            'edad', 'fecha_nacimiento', 'avatar_url', 
-            'partidas_jugadas', 'partidas_ganadas'
+            'id', 'username', 'nombre_completo', 'email',
+            'edad', 'fecha_nacimiento', 'avatar_url',
+            'partidas_jugadas', 'partidas_ganadas', 'puntaje_total'  # ✅ Agregado
         ]
-        read_only_fields = ['partidas_jugadas', 'partidas_ganadas']
+        read_only_fields = ['partidas_jugadas', 'partidas_ganadas', 'puntaje_total']
 
-
-# 2. Serializador para el Registro de Usuarios (User + Perfil)
 class RegistroUsuarioSerializer(serializers.ModelSerializer):
     perfil = PerfilUsuarioSerializer()
 
@@ -25,19 +23,18 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         perfil_data = validated_data.pop('perfil')
-        # Crear el usuario nativo de Django con contraseña encriptada
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password']
-        )
-        # Crear el perfil vinculado al usuario
-        PerfilUsuario.objects.create(usuario=user, **perfil_data)
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                email=perfil_data.get('email', ''),
+                password=validated_data['password']
+            )
+            perfil_data.pop('username', None)
+            perfil_data.pop('email', None)
+            PerfilUsuario.objects.create(usuario=user, username=user.username, **perfil_data)
         return user
 
-
-# 3. Serializador para el Envío y Muestra de Respuestas por Ronda
 class RespuestaJugadorSerializer(serializers.ModelSerializer):
-    # Mostramos el username del perfil del jugador en lugar del ID numérico
     jugador_username = serializers.ReadOnlyField(source='jugador.username')
 
     class Meta:
@@ -48,14 +45,11 @@ class RespuestaJugadorSerializer(serializers.ModelSerializer):
             'puntos_nombre', 'puntos_apellido', 'puntos_ciudad_pais', 
             'puntos_animal', 'puntos_cosa', 'total_puntos_ronda'
         ]
-        # Al crear la respuesta desde la app móvil, los puntos no se envían manualmente
         read_only_fields = [
             'puntos_nombre', 'puntos_apellido', 'puntos_ciudad_pais', 
-            'puntos_animal', 'puntos_cosa', 'total_puntos_ronda'
+            'puntos_animal', 'puntos_cosa', 'total_puntos_ronda', 'ronda'
         ]
 
-
-# 4. Serializador para las Rondas de Juego
 class RondaSerializer(serializers.ModelSerializer):
     respuestas = RespuestaJugadorSerializer(many=True, read_only=True)
 
@@ -63,13 +57,12 @@ class RondaSerializer(serializers.ModelSerializer):
         model = Ronda
         fields = ['id', 'numero_ronda', 'letra', 'activa', 'respuestas']
 
-
-# 5. Serializador para la Gestión de las Salas (Lobby mobile)
 class SalaSerializer(serializers.ModelSerializer):
     creador_username = serializers.ReadOnlyField(source='creador.username')
+    jugadores = PerfilUsuarioSerializer(many=True, read_only=True)
     rondas = RondaSerializer(many=True, read_only=True)
 
     class Meta:
         model = Sala
-        fields = ['codigo', 'creador_username', 'estado', 'fecha_creacion', 'rondas']
+        fields = ['codigo', 'creador_username', 'estado', 'fecha_creacion', 'jugadores', 'rondas']
         read_only_fields = ['codigo', 'fecha_creacion']
