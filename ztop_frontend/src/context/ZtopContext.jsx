@@ -6,10 +6,11 @@ export const ZtopContext = createContext(null);
 export const ZtopProvider = ({ children }) => {
   // 📱 Estados nucleares de la partida móvil
   const [salaCodigo, setSalaCodigo] = useState(null);
-  const [estadoJuego, setEstadoJuego] = useState('esperando'); // esperando | en_ronda | cuenta_regresiva | resultados
+  const [salaCreador, setSalaCreador] = useState(''); // 🚀 NUEVO: Guarda el host de la partida
+  const [estadoJuego, setEstadoJuego] = useState('esperando'); 
   const [letraActiva, setLetraActiva] = useState('');
   const [resultadosRonda, setResultadosRonda] = useState([]);
-  const [usuariosEnSala, setUsuariosEnSala] = useState([]); // Para listar los rivales en el lobby
+  const [usuariosEnSala, setUsuariosEnSala] = useState([]); 
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
   
@@ -35,7 +36,6 @@ export const ZtopProvider = ({ children }) => {
       return;
     }
 
-    // Cerramos cualquier conexión remanente previa por seguridad
     if (socketRef.current) {
       socketRef.current.close();
     }
@@ -44,8 +44,7 @@ export const ZtopProvider = ({ children }) => {
     setSalaCodigo(codigoUpper);
     setError(null);
 
-    // 🌐 URL del WebSocket pasando el token por query string seguro para TokenAuthMiddleware
-    // NOTA: Recuerda cambiar 'localhost:8000' por tu IP local de red para testing en smartphones reales
+    // 🌐 URL del WebSocket apuntando a tu IP local
     const wsUrl = `ws://192.168.18.199:8000/ws/juego/${codigoUpper}/?token=${token}`;
     
     const ws = new WebSocket(wsUrl);
@@ -58,13 +57,17 @@ export const ZtopProvider = ({ children }) => {
 
     ws.onmessage = (event) => {
       try {
-        // Parseo seguro con el objeto JSON nativo
         const data = JSON.parse(event.data);
         console.log('📥 [EVENTO BACKEND RECIBIDO]:', data);
 
         // 🎛️ Máquina de estados conducida simétricamente por los broadcasts del backend
         switch (data.status) {
-          case 'ronda_iniciada': // Evento emitido por notificar_inicio
+          case 'actualizar_lobby': // 🚀 SOLUCIÓN 1: Atrapa el broadcast de nuevos jugadores
+            setUsuariosEnSala(data.jugadores);
+            setSalaCreador(data.creador);
+            break;
+
+          case 'ronda_iniciada': 
             limpiarCountdown();
             setLetraActiva(data.letra);
             setResultadosRonda([]);
@@ -72,10 +75,9 @@ export const ZtopProvider = ({ children }) => {
             setEstadoJuego('en_ronda');
             break;
 
-          case 'stop_presionado': // Evento emitido por notificar_cuenta_regresiva
+          case 'stop_presionado': 
             setEstadoJuego('cuenta_regresiva');
             setSegundosRestantes(10);
-            // Cronómetro local síncrono descendente para la animación móvil
             countdownIntervalRef.current = setInterval(() => {
               setSegundosRestantes((prev) => {
                 if (prev <= 1) {
@@ -87,14 +89,14 @@ export const ZtopProvider = ({ children }) => {
             }, 1000);
             break;
 
-          case 'resultados_ronda': // Evento emitido por notificar_resultados al finalizar la evaluación
+          case 'resultados_ronda': 
             limpiarCountdown();
             setSegundosRestantes(0);
             setResultadosRonda(data.resultados);
             setEstadoJuego('resultados');
             break;
 
-          case 'listo_siguiente_ronda': // Evento emitido por notificar_listo_siguiente
+          case 'listo_siguiente_ronda': 
             limpiarCountdown();
             setLetraActiva('');
             setSegundosRestantes(10);
@@ -133,16 +135,16 @@ export const ZtopProvider = ({ children }) => {
     }
     setIsConnected(false);
     setSalaCodigo(null);
+    setSalaCreador(''); // Limpiamos el creador
     setEstadoJuego('esperando');
     setLetraActiva('');
     setResultadosRonda([]);
   }, [limpiarCountdown]);
 
   // =========================================================================
-  // 📡 ACCIONES EMISORAS HACIA DJANGO CHANNELS (Mapeadas con receive del Backend)
+  // 📡 ACCIONES EMISORAS HACIA DJANGO CHANNELS
   // =========================================================================
 
-  // 🎲 1. Iniciar ronda activa con una letra en la BD relacional
   const iniciarRonda = useCallback((letra = 'A') => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
@@ -152,7 +154,6 @@ export const ZtopProvider = ({ children }) => {
     }
   }, []);
 
-  // 🛑 2. Detener la ronda activa e iniciar temporizador de pánico de 10s en caché
   const presionarStop = useCallback(() => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
@@ -161,7 +162,6 @@ export const ZtopProvider = ({ children }) => {
     }
   }, []);
 
-  // 🔄 3. Limpiar variables y devolver el estado global a 'esperando' para una nueva partida
   const siguienteRonda = useCallback(() => {
     if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({
@@ -170,7 +170,6 @@ export const ZtopProvider = ({ children }) => {
     }
   }, []);
 
-  // Limpieza defensiva de intervalos de memoria al desmontar el proveedor
   useEffect(() => {
     return () => {
       limpiarCountdown();
@@ -180,6 +179,7 @@ export const ZtopProvider = ({ children }) => {
   // 📦 Empaquetado completo de la capa de control global
   const value = {
     salaCodigo,
+    salaCreador, // 🚀 Expuesto para que el Lobby lo pueda usar
     estadoJuego,
     letraActiva,
     resultadosRonda,

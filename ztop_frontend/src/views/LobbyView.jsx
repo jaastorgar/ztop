@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-// 🧵 Importamos la paleta completa de íconos requerida para el diseño cyber de la captura
+// 🧵 Importamos la paleta completa de íconos requerida para el diseño cyber
 import { 
   HiUserGroup, HiPlus, HiArrowRight, HiCheckCircle, HiArrowLeft,
   HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser 
@@ -10,6 +10,7 @@ const LobbyView = ({ onGoToPerfil }) => {
   // 🧠 Consumimos los estados y acciones globales del WebSocket
   const { 
     salaCodigo, 
+    salaCreador, // 🚀 Consumimos el creador de la sala para la validación
     usuariosEnSala, 
     setUsuariosEnSala,
     conectarSala, 
@@ -102,7 +103,7 @@ const LobbyView = ({ onGoToPerfil }) => {
   return (
     <div className="w-full h-full flex flex-col bg-brand-darkBg overflow-hidden justify-between">
       
-      {/* 🧾 MÓDULO 1: Menú Principal / Fuera de Sala (Diseño fiel al Pantallazo) */}
+      {/* 🧾 MÓDULO 1: Menú Principal / Fuera de Sala */}
       {!salaCodigo ? (
         <>
           {/* 🔝 TOP HEADER BAR */}
@@ -191,7 +192,7 @@ const LobbyView = ({ onGoToPerfil }) => {
             )}
           </div>
 
-          {/* 📱 BOTTOM NAVIGATION TAB BAR (Sincronización Total con el Menú del Celular) */}
+          {/* 📱 BOTTOM NAVIGATION TAB BAR */}
           <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md">
             <button className="flex flex-col items-center justify-center space-y-1 text-brand-accent group">
               <HiHome className="w-6 h-6 drop-shadow-[0_2px_8px_rgba(10,232,198,0.4)]" />
@@ -206,7 +207,6 @@ const LobbyView = ({ onGoToPerfil }) => {
             <button className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiBell className="w-6 h-6" />
             </button>
-            {/* 🚀 BOTÓN DE PERFIL: Conecta directamente con la navegación del PerfilView */}
             <button 
               onClick={onGoToPerfil}
               className="flex flex-col items-center justify-center text-white/40 active:text-brand-lightBg active:scale-90 transition-all"
@@ -267,16 +267,22 @@ const LobbyView = ({ onGoToPerfil }) => {
             </div>
           </div>
 
-          {/* Footer del lobby: Botón de arranque */}
+          {/* 🏁 SOLUCIÓN 2: Renderizado condicional exclusivo para el creador de la sala */}
           <div className="w-full px-6 py-6 bg-brand-darkBg">
-            <button
-              onClick={handleLanzarJuego}
-              className="w-full h-16 bg-brand-accent text-brand-darkBg font-title text-lg font-bold rounded-xl shadow-touch-3 hover:bg-brand-accent/90 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
-            >
-              <span>¡INICIAR PARTIDA!</span>
-            </button>
+            {usernameLocal === salaCreador ? (
+              <button
+                onClick={handleLanzarJuego}
+                className="w-full h-16 bg-brand-accent text-brand-darkBg font-title text-lg font-bold rounded-xl shadow-touch-3 hover:bg-brand-accent/90 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
+              >
+                <span>¡INICIAR PARTIDA!</span>
+              </button>
+            ) : (
+              <div className="w-full h-16 bg-brand-primary/30 text-white/50 border border-white/5 font-sans text-sm font-medium rounded-xl flex items-center justify-center">
+                <span>Esperando que el creador (@{salaCreador}) inicie...</span>
+              </div>
+            )}
             <p className="text-center font-sans text-xxs text-white/40 mt-3 tracking-wide">
-              Esperando a que el creador inicie la ronda móvil...
+              ztop! • Inmediatez Táctil Garantizada
             </p>
           </div>
 
