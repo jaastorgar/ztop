@@ -214,7 +214,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
     def obtener_resultados_ronda(self, codigo_sala):
         ronda = Ronda.objects.filter(sala__codigo=codigo_sala).latest('id')
         respuestas = RespuestaJugador.objects.filter(ronda=ronda).select_related('jugador__usuario')
-        
+    
         resultados = []
         for r in respuestas:
             resultados.append({
@@ -227,7 +227,7 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                         'pts': getattr(r, f'puntos_{cat}')
                     } for cat in ['nombre', 'apellido', 'ciudad_pais', 'animal', 'cosa']
                 }
-            })
+            })    
         return sorted(resultados, key=lambda x: x['total_ronda'], reverse=True)
 
     async def _handle_siguiente_ronda(self):
