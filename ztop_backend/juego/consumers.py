@@ -24,14 +24,21 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         cache_key = f"ztop_sala:{self.sala_codigo}"
         room_state = await cache.aget(cache_key)
         
+        # 🆕 Inicializamos la sala con el modo clásico por defecto en la caché
         if not room_state:
-            room_state = {'estado': 'esperando', 'stop_solicitado_por': None}
+            room_state = {'estado': 'esperando', 'stop_solicitado_por': None, 'modo_juego': 'clasico'}
             await cache.aset(cache_key, room_state, timeout=86400)
 
         await self.channel_layer.group_add(self.sala_group_name, self.channel_name)
         await self.accept()
 
-        # 📡 SOLUCIÓN 1: Notificar de inmediato a todos los miembros de la sala el ingreso del nuevo jugador
+        # 🆕 Sincronizamos el modo actual para el jugador que acaba de entrar
+        await self.send(json.dumps({
+            'status': 'cambio_modo',
+            'modo': room_state.get('modo_juego', 'clasico')
+        }))
+
+        # 📡 Notificar de inmediato a todos los miembros de la sala el ingreso del nuevo jugador
         info_lobby = await self.obtener_info_lobby()
         await self.channel_layer.group_send(self.sala_group_name, {
             'type': 'notificar_cambio_lobby',
@@ -39,11 +46,24 @@ class JuegoConsumer(AsyncWebsocketConsumer):
             'creador': info_lobby['creador']
         })
 
+    # 🚀 SOLUCIÓN AL DILEMA: Manejo inteligente de la desconexión
     async def disconnect(self, close_code):
-        # El temporizador corre independiente. Si alguien pierde conexión, la partida sigue.
+        # 1. Lo sacamos del grupo de WebSockets
         await self.channel_layer.group_discard(self.sala_group_name, self.channel_name)
         
-        # Opcional: Podrías notificar aquí que alguien salió si quisieras actualizar la lista al desconectarse.
+        # 2. Identificamos qué usuario se está yendo
+        user = self.scope.get("user")
+        if user and user.is_authenticated:
+            # 3. Lo borramos físicamente de la sala en la base de datos
+            await self.eliminar_jugador_de_sala(self.sala_codigo, user)
+            
+            # 4. Le avisamos inmediatamente a los teléfonos restantes que la lista cambió
+            info_lobby = await self.obtener_info_lobby()
+            await self.channel_layer.group_send(self.sala_group_name, {
+                'type': 'notificar_cambio_lobby',
+                'jugadores': info_lobby['jugadores'],
+                'creador': info_lobby['creador']
+            })
 
     async def receive(self, text_data):
         try:
@@ -56,8 +76,29 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                 await self._handle_presionar_stop()
             elif evento == 'siguiente_ronda':
                 await self._handle_siguiente_ronda()
+            # 🆕 Escuchamos la petición del frontend para cambiar las reglas de la sala
+            elif evento == 'cambiar_modo':
+                await self._handle_cambiar_modo(data.get('modo', 'clasico'))
         except json.JSONDecodeError:
             pass
+
+    # 🆕 Función para procesar y validar el cambio de modo
+    async def _handle_cambiar_modo(self, nuevo_modo):
+        # 1. Validar que quien cambia el modo sea estrictamente el host/creador de la sala
+        if not await self.es_creador(self.scope['user']):
+            return
+
+        # 2. Actualizar la caché global
+        cache_key = f"ztop_sala:{self.sala_codigo}"
+        room_state = await cache.aget(cache_key, {})
+        room_state['modo_juego'] = nuevo_modo
+        await cache.aset(cache_key, room_state, timeout=86400)
+        
+        # 3. Disparar evento a todos los miembros conectados
+        await self.channel_layer.group_send(self.sala_group_name, {
+            'type': 'notificar_cambio_modo',
+            'modo': nuevo_modo
+        })
 
     async def _handle_iniciar_ronda(self, letra):
         cache_key = f"ztop_sala:{self.sala_codigo}"
@@ -66,7 +107,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
         if room_state.get('estado') not in ['esperando', 'terminada']:
             return
 
-        # 🛡️ SOLUCIÓN 2: Enforzar en el servidor que solo el creador inicie la ronda
         if not await self.es_creador(self.scope['user']):
             await self.send(json.dumps({'error': 'Solo el creador de la sala puede iniciar la partida.'}))
             return
@@ -111,6 +151,18 @@ class JuegoConsumer(AsyncWebsocketConsumer):
     # =======================================================
     # 🛠️ FUNCIONES DE BASE DE DATOS Y AYUDANTES (Helpers)
     # =======================================================
+
+    # 🚀 NUEVO HELPER: Borra físicamente la relación del jugador con la sala
+    @database_sync_to_async
+    @transaction.atomic
+    def eliminar_jugador_de_sala(self, codigo_sala, user):
+        try:
+            sala = Sala.objects.get(codigo=codigo_sala)
+            SalaJugador.objects.filter(sala=sala, jugador__usuario=user).delete()
+            return True
+        except Exception as e:
+            print(f"Error quitando al jugador de la sala: {e}")
+            return False
 
     @database_sync_to_async
     def obtener_info_lobby(self):
@@ -162,7 +214,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
 
             categorias = ['nombre', 'apellido', 'ciudad_pais', 'animal', 'cosa']
             
-            # 1. Asignar puntajes base por repetición (100 o 50)
             for cat in categorias:
                 agrupados = {}
                 for resp in respuestas:
@@ -177,7 +228,6 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                     for resp in group:
                         setattr(resp, f'puntos_{cat}', pts)
 
-            # 2. Calcular el total de cada jugador y encontrar el puntaje máximo de la ronda
             max_puntos = -1
             for resp in respuestas:
                 resp.total_puntos_ronda = (
@@ -188,21 +238,14 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                     max_puntos = resp.total_puntos_ronda
                 resp.save()
                 
-            # 3. 🚀 SOLUCIÓN: Actualizar Jugadas, Ganadas y Puntos en el Perfil
             for resp in respuestas:
                 perfil = resp.jugador
-                
-                # Sumamos el puntaje de la ronda al histórico
                 perfil.puntaje_total += resp.total_puntos_ronda
-                
-                # INCREMENTAR JUGADAS: Todo jugador que participó suma una partida
                 perfil.partidas_jugadas += 1
                 
-                # DETECTAR GANADOR: Si el jugador obtuvo el puntaje más alto (y es > 0), le otorgamos la victoria
                 if resp.total_puntos_ronda == max_puntos and max_puntos > 0:
                     perfil.partidas_ganadas += 1
                 
-                # Guardamos los 3 campos explícitamente en la base de datos
                 perfil.save(update_fields=['puntaje_total', 'partidas_jugadas', 'partidas_ganadas'])
                 
             return True
@@ -253,10 +296,16 @@ class JuegoConsumer(AsyncWebsocketConsumer):
     async def notificar_listo_siguiente(self, event): 
         await self.send(json.dumps({'status': 'listo_siguiente_ronda', 'mensaje': event['mensaje']}))
 
-    # 🚀 SOLUCIÓN 1: Handler para actualizar la lista de usuarios conectados al lobby
     async def notificar_cambio_lobby(self, event):
         await self.send(json.dumps({
             'status': 'actualizar_lobby',
             'jugadores': event['jugadores'],
             'creador': event['creador']
+        }))
+        
+    # 🆕 Handler para enviar la actualización del modo al frontend
+    async def notificar_cambio_modo(self, event):
+        await self.send(json.dumps({
+            'status': 'cambio_modo',
+            'modo': event['modo']
         }))

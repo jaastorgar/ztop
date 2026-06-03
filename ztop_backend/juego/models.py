@@ -44,9 +44,19 @@ class Sala(models.Model):
         ('terminada', 'Partida Terminada'),
     ]
     
+    # 🍻 Opciones de modos de juego
+    MODOS = [
+        ('clasico', 'Modo Clásico'),
+        ('alcoholico', 'Modo Alcohólico'),
+    ]
+    
     codigo = models.CharField(max_length=6, primary_key=True, unique=True)
     creador = models.ForeignKey(PerfilUsuario, on_delete=models.CASCADE, related_name='salas_creadas')
     estado = models.CharField(max_length=20, choices=ESTADOS, default='esperando')
+    
+    # 🚀 NUEVO: Definimos el campo modo_juego a nivel de base de datos
+    modo_juego = models.CharField(max_length=20, choices=MODOS, default='clasico')
+    
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     # ✅ Relación ManyToMany con modelo intermedio explícito
@@ -57,7 +67,7 @@ class Sala(models.Model):
     )
 
     def __str__(self):
-        return f"Sala {self.codigo} - {self.get_estado_display()}"
+        return f"Sala {self.codigo} ({self.get_modo_juego_display()}) - {self.get_estado_display()}"
 
 
 class Ronda(models.Model):

@@ -1,31 +1,34 @@
 import React, { useState, useContext } from 'react';
-// 🧵 Importamos la paleta completa de íconos requerida para el diseño cyber
+// 🧵 Íconos profesionales de Heroicons
 import { 
   HiUserGroup, HiPlus, HiArrowRight, HiCheckCircle, HiArrowLeft,
-  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser 
+  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser,
+  HiSparkles, HiBeaker
 } from "react-icons/hi2";
 import { ZtopContext } from '../context/ZtopContext';
 
 const LobbyView = ({ onGoToPerfil }) => {
-  // 🧠 Consumimos los estados y acciones globales del WebSocket
+  // 🧠 Consumimos los estados y acciones globales sincronizadas con el WebSocket
   const { 
     salaCodigo, 
-    salaCreador, // 🚀 Consumimos el creador de la sala para la validación
+    salaCreador, 
     usuariosEnSala, 
     setUsuariosEnSala,
     conectarSala, 
     desconectarSala,
     iniciarRonda, 
     error,
-    isConnected 
+    isConnected,
+    modoJuego,    // 🚀 Estado del modo de juego
+    cambiarModo   // 🚀 Función para cambiar el modo
   } = useContext(ZtopContext);
 
-  // 📱 Estados locales para el control de inputs y cargas asíncronas
+  // 📱 Estados locales
   const [pinInput, setPinInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorLocal, setErrorLocal] = useState('');
 
-  // 👤 Obtenemos el nombre del jugador autenticado para personalizar la pantalla
+  // 👤 Obtenemos el usuario autenticado
   const usernameLocal = localStorage.getItem('ztop_username') || 'jugador';
   const tokenDev = localStorage.getItem('ztop_token') || "tu_token_de_auth_aqui";
 
@@ -101,18 +104,18 @@ const LobbyView = ({ onGoToPerfil }) => {
   };
 
   return (
-    <div className="w-full h-full flex flex-col bg-brand-darkBg overflow-hidden justify-between">
+    // 🌌 CONTENEDOR PRINCIPAL: Vuelve el bg-brand-darkBg para el tono púrpura oscuro
+    <div className="w-full h-full flex flex-col bg-brand-darkBg overflow-hidden justify-between select-none">
       
       {/* 🧾 MÓDULO 1: Menú Principal / Fuera de Sala */}
       {!salaCodigo ? (
         <>
           {/* 🔝 TOP HEADER BAR */}
           <div className="w-full px-6 pt-6 pb-2 flex items-center justify-between z-10">
-            <div className="w-10 h-10 opacity-0"></div> {/* Espaciador izquierdo */}
-            <h1 className="font-title text-3xl font-black tracking-widest text-white uppercase select-none">
+            <div className="w-10 h-10 opacity-0"></div>
+            <h1 className="font-title text-3xl font-black tracking-widest text-white uppercase drop-shadow-md">
               Z<span className="text-brand-accent">TOP!</span>
             </h1>
-            {/* Botón rápido superior estilo circular con la inicial */}
             <button 
               onClick={onGoToPerfil}
               className="w-10 h-10 bg-brand-primary/60 border border-white/10 rounded-full flex items-center justify-center text-sm font-bold text-brand-lightBg shadow-touch-1 active:scale-90 transition-all"
@@ -131,10 +134,10 @@ const LobbyView = ({ onGoToPerfil }) => {
             </p>
           </div>
 
-          {/* 🗂️ CONTENEDOR CENTRAL DESLIZABLE (ZONA DE CARDS INTERACTIVAS) */}
+          {/* 🗂️ CONTENEDOR CENTRAL: Vuelven las tarjetas púrpuras y rosadas */}
           <div className="flex-grow w-full px-6 py-6 space-y-6 overflow-y-auto scrollbar-hide">
             
-            {/* 🟣 CARD 1: CREAR SALA NUEVA (HOST) */}
+            {/* 🟣 CARD 1: CREAR SALA */}
             <div className="w-full p-5 bg-gradient-to-b from-brand-primary to-brand-primary/80 border border-white/10 rounded-2xl shadow-touch-2 relative overflow-hidden group">
               <div className="flex items-center space-x-3 mb-4">
                 <HiPlus className="w-5 h-5 text-brand-accent" />
@@ -151,7 +154,7 @@ const LobbyView = ({ onGoToPerfil }) => {
               </button>
             </div>
 
-            {/* 🔵 CARD 2: UNIRSE A UNA SALA CON PIN */}
+            {/* 🔵 CARD 2: UNIRSE A UNA SALA */}
             <div className="w-full p-5 bg-brand-primary/40 border border-white/10 rounded-2xl shadow-touch-2 space-y-4">
               <div className="flex items-center space-x-3">
                 <HiUserGroup className="w-5 h-5 text-brand-accent" />
@@ -237,38 +240,89 @@ const LobbyView = ({ onGoToPerfil }) => {
             </div>
           </div>
 
-          {/* Contenedor de jugadores listos */}
-          <div className="flex-grow w-full px-6 py-6 flex flex-col space-y-4 overflow-y-auto">
-            <div className="flex items-center space-x-2 text-white/80 pl-2">
-              <HiUserGroup className="w-5 h-5 text-brand-lightBg" />
-              <h2 className="font-sans text-sm font-semibold uppercase tracking-wider">
-                Jugadores en la Sala ({usuariosEnSala.length})
-              </h2>
+          {/* Contenedor central de configuraciones y jugadores */}
+          <div className="flex-grow w-full px-6 py-6 flex flex-col space-y-6 overflow-y-auto">
+            
+            {/* 🚀 MÓDULO: SELECCIÓN DE MODOS DE JUEGO (Diseño Tarjeta Púrpura) */}
+            <div className="w-full p-5 bg-brand-primary/30 border border-brand-primary/50 rounded-2xl shadow-touch-2 space-y-3">
+              <div className="flex items-center space-x-3">
+                <HiSparkles className="w-5 h-5 text-brand-accent" />
+                <h3 className="font-title text-sm font-bold uppercase tracking-wider text-white">
+                  Modo de Juego
+                </h3>
+              </div>
+              
+              {usernameLocal === salaCreador ? (
+                /* Controles interactivos para el Host */
+                <div className="bg-brand-darkBg/60 p-1.5 rounded-xl flex border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => cambiarModo('clasico')}
+                    className={`flex-1 h-10 rounded-lg font-title text-xs font-bold flex items-center justify-center space-x-2 transition-all duration-300 ${
+                      modoJuego === 'clasico' 
+                        ? 'bg-brand-secondary text-white shadow-md border border-white/10' 
+                        : 'text-white/40 hover:text-white/70 bg-transparent'
+                    }`}
+                  >
+                    <span>🍺 CLÁSICO</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cambiarModo('alcoholico')}
+                    className={`flex-1 h-10 rounded-lg font-title text-xs font-bold flex items-center justify-center space-x-2 transition-all duration-300 ${
+                      modoJuego === 'alcoholico' 
+                        ? 'bg-red-500/80 text-white shadow-md border border-red-400/30' 
+                        : 'text-white/40 hover:text-red-300 bg-transparent'
+                    }`}
+                  >
+                    <span>🍻 ALCOHÓLICO</span>
+                  </button>
+                </div>
+              ) : (
+                /* Badge estático para los invitados */
+                <div className={`w-full h-12 rounded-xl flex items-center justify-center border font-title text-xs font-bold uppercase tracking-widest transition-all ${
+                  modoJuego === 'alcoholico' 
+                    ? 'bg-red-500/20 text-red-400 border-red-500/30 animate-pulse' 
+                    : 'bg-brand-darkBg/50 text-brand-accent border-white/5'
+                }`}>
+                  {modoJuego === 'alcoholico' ? '⚠️ MODO ALCOHÓLICO ACTIVADO' : '🍺 MODO CLÁSICO ACTIVADO'}
+                </div>
+              )}
             </div>
 
-            {/* Listado vertical de perfiles conectados */}
-            <div className="w-full space-y-3">
-              {usuariosEnSala.map((usuario, index) => (
-                <div 
-                  key={index} 
-                  className="w-full h-14 bg-brand-primary px-4 rounded-xl flex items-center justify-between shadow-touch-1 border border-white/5 animate-fade-in"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-secondary flex items-center justify-center font-title text-sm font-bold text-white">
-                      {usuario.username.substring(0, 2).toUpperCase()}
+            {/* Listado de jugadores en sala */}
+            <div className="flex flex-col space-y-3 pt-2">
+              <div className="flex items-center space-x-2 text-white/80 pl-2">
+                <HiUserGroup className="w-5 h-5 text-brand-lightBg" />
+                <h2 className="font-sans text-sm font-semibold uppercase tracking-wider">
+                  Jugadores en la Sala ({usuariosEnSala.length})
+                </h2>
+              </div>
+
+              <div className="w-full space-y-3">
+                {usuariosEnSala.map((usuario, index) => (
+                  <div 
+                    key={index} 
+                    className="w-full h-14 bg-brand-primary px-4 rounded-xl flex items-center justify-between shadow-touch-1 border border-white/5 animate-fade-in"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 rounded-full bg-brand-secondary flex items-center justify-center font-title text-sm font-bold text-white">
+                        {usuario.username.substring(0, 2).toUpperCase()}
+                      </div>
+                      <span className="font-sans text-base font-medium text-white/90">
+                        {usuario.username}
+                      </span>
                     </div>
-                    <span className="font-sans text-base font-medium text-white/90">
-                      {usuario.username}
-                    </span>
+                    <HiCheckCircle className="w-6 h-6 text-brand-accent" />
                   </div>
-                  <HiCheckCircle className="w-6 h-6 text-brand-accent" />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
           </div>
 
-          {/* 🏁 SOLUCIÓN 2: Renderizado condicional exclusivo para el creador de la sala */}
-          <div className="w-full px-6 py-6 bg-brand-darkBg">
+          {/* 🏁 Footer: Botón de arranque */}
+          <div className="w-full px-6 py-6 bg-brand-darkBg border-t border-white/5">
             {usernameLocal === salaCreador ? (
               <button
                 onClick={handleLanzarJuego}

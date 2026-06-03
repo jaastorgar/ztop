@@ -6,8 +6,12 @@ export const ZtopContext = createContext(null);
 export const ZtopProvider = ({ children }) => {
   // 📱 Estados nucleares de la partida móvil
   const [salaCodigo, setSalaCodigo] = useState(null);
-  const [salaCreador, setSalaCreador] = useState(''); // 🚀 NUEVO: Guarda el host de la partida
+  const [salaCreador, setSalaCreador] = useState(''); // Guarda el host de la partida
   const [estadoJuego, setEstadoJuego] = useState('esperando'); 
+  
+  // 🚀 NUEVO ESTADO GLOBAL: Modo de Juego (clasico o alcoholico)
+  const [modoJuego, setModoJuego] = useState('clasico'); 
+
   const [letraActiva, setLetraActiva] = useState('');
   const [resultadosRonda, setResultadosRonda] = useState([]);
   const [usuariosEnSala, setUsuariosEnSala] = useState([]); 
@@ -62,9 +66,14 @@ export const ZtopProvider = ({ children }) => {
 
         // 🎛️ Máquina de estados conducida simétricamente por los broadcasts del backend
         switch (data.status) {
-          case 'actualizar_lobby': // 🚀 SOLUCIÓN 1: Atrapa el broadcast de nuevos jugadores
+          case 'actualizar_lobby': 
             setUsuariosEnSala(data.jugadores);
             setSalaCreador(data.creador);
+            break;
+
+          // 🍻 NUEVO: Escucha cuando el Host cambia el modo en tiempo real
+          case 'cambio_modo':
+            setModoJuego(data.modo);
             break;
 
           case 'ronda_iniciada': 
@@ -135,7 +144,8 @@ export const ZtopProvider = ({ children }) => {
     }
     setIsConnected(false);
     setSalaCodigo(null);
-    setSalaCreador(''); // Limpiamos el creador
+    setSalaCreador(''); 
+    setModoJuego('clasico'); // Reiniciamos el modo al desconectar
     setEstadoJuego('esperando');
     setLetraActiva('');
     setResultadosRonda([]);
@@ -170,6 +180,16 @@ export const ZtopProvider = ({ children }) => {
     }
   }, []);
 
+  // 🍻 NUEVO: Acción para que el Host envíe el cambio de modo al backend
+  const cambiarModo = useCallback((nuevoModo) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ 
+        action: 'cambiar_modo', 
+        modo: nuevoModo 
+      }));
+    }
+  }, []);
+
   useEffect(() => {
     return () => {
       limpiarCountdown();
@@ -179,8 +199,9 @@ export const ZtopProvider = ({ children }) => {
   // 📦 Empaquetado completo de la capa de control global
   const value = {
     salaCodigo,
-    salaCreador, // 🚀 Expuesto para que el Lobby lo pueda usar
+    salaCreador, 
     estadoJuego,
+    modoJuego,
     letraActiva,
     resultadosRonda,
     usuariosEnSala,
@@ -192,7 +213,8 @@ export const ZtopProvider = ({ children }) => {
     desconectarSala,
     iniciarRonda,
     presionarStop,
-    siguienteRonda
+    siguienteRonda,
+    cambiarModo 
   };
 
   return (
