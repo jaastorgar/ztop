@@ -7,7 +7,8 @@ import {
 } from "react-icons/hi2";
 import { ZtopContext } from '../context/ZtopContext';
 
-const LobbyView = ({ onGoToPerfil }) => {
+// 🚀 MEJORA: Recibimos 'onNavigate' en lugar de 'onGoToPerfil'
+const LobbyView = ({ onNavigate }) => {
   // 🧠 Consumimos los estados y acciones globales sincronizadas con el WebSocket
   const { 
     salaCodigo, 
@@ -105,19 +106,19 @@ const LobbyView = ({ onGoToPerfil }) => {
 
   return (
     // 🌌 CONTENEDOR PRINCIPAL: Vuelve el bg-brand-darkBg para el tono púrpura oscuro
-    <div className="w-full h-full flex flex-col bg-brand-darkBg overflow-hidden justify-between select-none">
+    <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden justify-between select-none">
       
       {/* 🧾 MÓDULO 1: Menú Principal / Fuera de Sala */}
       {!salaCodigo ? (
         <>
           {/* 🔝 TOP HEADER BAR */}
-          <div className="w-full px-6 pt-6 pb-2 flex items-center justify-between z-10">
+          <div className="w-full px-6 pt-10 pb-2 flex items-center justify-between z-10">
             <div className="w-10 h-10 opacity-0"></div>
             <h1 className="font-title text-3xl font-black tracking-widest text-white uppercase drop-shadow-md">
               Z<span className="text-brand-accent">TOP!</span>
             </h1>
             <button 
-              onClick={onGoToPerfil}
+              onClick={() => onNavigate('perfil')} // 🚀 Conectado al nuevo enrutador
               className="w-10 h-10 bg-brand-primary/60 border border-white/10 rounded-full flex items-center justify-center text-sm font-bold text-brand-lightBg shadow-touch-1 active:scale-90 transition-all"
             >
               {usernameLocal.substring(0, 1).toUpperCase()}
@@ -134,7 +135,7 @@ const LobbyView = ({ onGoToPerfil }) => {
             </p>
           </div>
 
-          {/* 🗂️ CONTENEDOR CENTRAL: Vuelven las tarjetas púrpuras y rosadas */}
+          {/* 🗂️ CONTENEDOR CENTRAL: Tarjetas púrpuras y rosadas */}
           <div className="flex-grow w-full px-6 py-6 space-y-6 overflow-y-auto scrollbar-hide">
             
             {/* 🟣 CARD 1: CREAR SALA */}
@@ -195,23 +196,32 @@ const LobbyView = ({ onGoToPerfil }) => {
             )}
           </div>
 
-          {/* 📱 BOTTOM NAVIGATION TAB BAR */}
+          {/* 📱 BOTTOM NAVIGATION TAB BAR (Ahora conectada a las vistas de App.jsx) */}
           <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md">
-            <button className="flex flex-col items-center justify-center space-y-1 text-brand-accent group">
+            {/* Botón Home (Activo) */}
+            <button onClick={() => onNavigate('home')} className="flex flex-col items-center justify-center space-y-1 text-brand-accent group">
               <HiHome className="w-6 h-6 drop-shadow-[0_2px_8px_rgba(10,232,198,0.4)]" />
               <div className="w-1 h-1 bg-brand-accent rounded-full"></div>
             </button>
-            <button className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+            
+            {/* Botón Chats */}
+            <button onClick={() => onNavigate('chats')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiChatBubbleLeftRight className="w-6 h-6" />
             </button>
+            
+            {/* Botón Acción Libre (Placeholder) */}
             <button className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiPencilSquare className="w-6 h-6" />
             </button>
-            <button className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+            
+            {/* Botón Amigos / Notificaciones */}
+            <button onClick={() => onNavigate('notificaciones')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiBell className="w-6 h-6" />
             </button>
+            
+            {/* Botón Perfil */}
             <button 
-              onClick={onGoToPerfil}
+              onClick={() => onNavigate('perfil')}
               className="flex flex-col items-center justify-center text-white/40 active:text-brand-lightBg active:scale-90 transition-all"
             >
               <HiUser className="w-6 h-6" />
@@ -224,7 +234,7 @@ const LobbyView = ({ onGoToPerfil }) => {
         <div className="w-full h-full flex flex-col justify-between">
           
           {/* Header del Lobby */}
-          <div className="w-full flex items-center justify-between px-6 pt-6 pb-6 border-b border-white/10 bg-brand-darkBg">
+          <div className="w-full flex items-center justify-between px-6 pt-10 pb-6 border-b border-white/10 bg-brand-darkBg">
             <button 
               onClick={desconectarSala}
               className="p-2.5 bg-brand-primary/40 border border-white/5 rounded-xl text-white/80 active:scale-95 transition-all"

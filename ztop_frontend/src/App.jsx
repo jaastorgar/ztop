@@ -1,29 +1,33 @@
 import React, { useContext, useState } from 'react';
-// 🧠 Importamos el proveedor y el contexto de control asíncrono
+// 🧠 Importamos los proveedores y contextos globales
 import { ZtopProvider, ZtopContext } from './context/ZtopContext';
+import { SocialProvider } from './context/SocialContext';
 
-// 📱 Importación de las 6 vistas del ecosistema móvil completo
+// 📱 Importación de las vistas del ecosistema móvil completo
 import LoginView from './views/LoginView';
 import LobbyView from './views/LobbyView';
 import GameActiveView from './views/GameActiveView';
 import VotingView from './views/VotingView';
 import PodioView from './views/PodioView';
 import PerfilView from './views/PerfilView';
+import ChatsView from './views/ChatsView';
+import NotificacionesView from './views/NotificacionesView';
 
 /**
  * 🎛️ Componente de Enrutamiento Condicional Interno (SPA)
  * Maneja el token de sesión y conmuta pantallas en tiempo real según el Servidor
  */
 const AppContent = () => {
-  // 🔌 Consumimos la variable de estado global gobernada por el WebSocket
+  // 🔌 Consumimos la variable de estado global gobernada por el WebSocket de partidas
   const { estadoJuego } = useContext(ZtopContext);
   
   // 🔑 Estados locales para la persistencia del token de Django REST
   const [token, setToken] = useState(localStorage.getItem('ztop_token'));
   const [username, setUsername] = useState(localStorage.getItem('ztop_username'));
   
-  // 🧭 Estado de navegación local exclusivo para alternar la pantalla de Perfil
-  const [verPerfil, setVerPerfil] = useState(false);
+  // 🧭 NUEVO: Controlador central de pestañas del menú inferior
+  // Opciones válidas: 'home', 'chats', 'notificaciones', 'perfil'
+  const [vistaActiva, setVistaActiva] = useState('home'); 
 
   // Manejador que se ejecuta al autenticarse con éxito en LoginView
   const handleLoginSuccess = (userToken, userLogin) => {
@@ -35,7 +39,7 @@ const AppContent = () => {
   const handleLogout = () => {
     setToken(null);
     setUsername(null);
-    setVerPerfil(false);
+    setVistaActiva('home'); // Reseteamos a la vista principal al salir
   };
 
   // 🛡️ 1. GUARD DE SEGURIDAD: Si no hay sesión activa, forzamos el LoginView
@@ -43,16 +47,29 @@ const AppContent = () => {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 🧭 2. INTERCEPTOR DE PERFIL: Si el flag está activo y estamos en sala de espera, abrimos Perfil
-  if (verPerfil && estadoJuego === 'esperando') {
-    return <PerfilView onBack={() => setVerPerfil(false)} onLogout={handleLogout} />;
+  // 🧭 2. INTERCEPTORES DE PESTAÑAS: Menús de navegación fuera de partida
+  if (estadoJuego === 'esperando') {
+    if (vistaActiva === 'perfil') {
+      return (
+        <PerfilView 
+          onNavigate={setVistaActiva} 
+          onLogout={handleLogout} 
+        />
+      );
+    }
+    if (vistaActiva === 'chats') {
+      return <ChatsView onNavigate={setVistaActiva} />;
+    }
+    if (vistaActiva === 'notificaciones') {
+      return <NotificacionesView onNavigate={setVistaActiva} />;
+    }
   }
 
-  // 🔄 3. MÁQUINA DE ESTADOS EN TIEMPO REAL: Acoplada simétricamente con tu Backend
+  // 🔄 3. MÁQUINA DE ESTADOS EN TIEMPO REAL (Partidas)
   switch (estadoJuego) {
     case 'esperando':
-      // El lobby maneja el ingreso de PIN, creación de salas y lista de oponentes
-      return <LobbyView onGoToPerfil={() => setVerPerfil(true)} />;
+      // El lobby ahora usa `onNavigate` para que funcione la barra inferior
+      return <LobbyView onNavigate={setVistaActiva} />;
 
     case 'en_ronda':
     case 'cuenta_regresiva':
@@ -69,20 +86,23 @@ const AppContent = () => {
 
     default:
       // Fallback seguro de resguardo para entornos smartphone
-      return <LobbyView onGoToPerfil={() => setVerPerfil(true)} />;
+      return <LobbyView onNavigate={setVistaActiva} />;
   }
 };
 
 /**
  * 🏛️ Componente Raíz de la Aplicación ztop!
- * Encapsula todo el árbol de componentes bajo el paraguas del Túnel de Sockets
+ * Encapsula todo el árbol de componentes bajo los paraguas de los Túneles de Sockets
  */
 export default function App() {
   return (
-    <ZtopProvider>
-      <div className="w-full h-full min-h-svh bg-brand-darkBg antialiased select-none">
-        <AppContent />
-      </div>
-    </ZtopProvider>
+    /* 🚀 Envolvemos TODA la aplicación con el contexto Social y de Juego */
+    <SocialProvider>
+      <ZtopProvider>
+        <div className="w-full h-full min-h-svh bg-brand-darkBg antialiased select-none">
+          <AppContent />
+        </div>
+      </ZtopProvider>
+    </SocialProvider>
   );
 }

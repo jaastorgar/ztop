@@ -1,7 +1,8 @@
 from django.urls import re_path
-from . import consumers
+from . import consumers  
+from social import consumers as social_consumers 
 
 websocket_urlpatterns = [
-    # Ruta para conectarse a una sala mobile específica usando su código pin
     re_path(r'ws/juego/(?P<sala_codigo>\w+)/$', consumers.JuegoConsumer.as_asgi()),
+    re_path(r'ws/social/$', social_consumers.SocialConsumer.as_asgi()),
 ]
