@@ -1,15 +1,15 @@
 import React, { useState, useContext } from 'react';
-// 🧵 Íconos profesionales de Heroicons
+// 🧵 Íconos profesionales de Heroicons (🚀 Agregamos HiShoppingBag)
 import { 
   HiUserGroup, HiPlus, HiArrowRight, HiCheckCircle, HiArrowLeft,
   HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser,
-  HiSparkles, HiBeaker
+  HiSparkles, HiBeaker, HiShoppingBag
 } from "react-icons/hi2";
 import { ZtopContext } from '../context/ZtopContext';
-// 🚀 NUEVO: Importamos el contexto social para las notificaciones
+// 🚀 Importamos el contexto social para las notificaciones
 import { SocialContext } from '../context/SocialContext';
 
-// 🚀 MEJORA: Recibimos 'onNavigate' en lugar de 'onGoToPerfil'
+// 🚀 Recibimos 'onNavigate' para el enrutamiento
 const LobbyView = ({ onNavigate }) => {
   // 🧠 Consumimos los estados y acciones globales sincronizadas con el WebSocket
   const { 
@@ -26,7 +26,7 @@ const LobbyView = ({ onNavigate }) => {
     cambiarModo   // 🚀 Función para cambiar el modo
   } = useContext(ZtopContext);
 
-  // 🚀 NUEVO: Consumimos las notificaciones del radar social global
+  // 🚀 Consumimos las notificaciones del radar social global
   const { notificaciones } = useContext(SocialContext);
 
   // 📱 Estados locales
@@ -123,7 +123,7 @@ const LobbyView = ({ onNavigate }) => {
               Z<span className="text-brand-accent">TOP!</span>
             </h1>
             <button 
-              onClick={() => onNavigate('perfil')} // 🚀 Conectado al nuevo enrutador
+              onClick={() => onNavigate('perfil')} 
               className="w-10 h-10 bg-brand-primary/60 border border-white/10 rounded-full flex items-center justify-center text-sm font-bold text-brand-lightBg shadow-touch-1 active:scale-90 transition-all"
             >
               {usernameLocal.substring(0, 1).toUpperCase()}
@@ -201,7 +201,7 @@ const LobbyView = ({ onNavigate }) => {
             )}
           </div>
 
-          {/* 📱 BOTTOM NAVIGATION TAB BAR (Ahora conectada a las vistas de App.jsx) */}
+          {/* 📱 BOTTOM NAVIGATION TAB BAR */}
           <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md">
             {/* Botón Home (Activo) */}
             <button onClick={() => onNavigate('home')} className="flex flex-col items-center justify-center space-y-1 text-brand-accent group">
@@ -214,12 +214,12 @@ const LobbyView = ({ onNavigate }) => {
               <HiChatBubbleLeftRight className="w-6 h-6" />
             </button>
             
-            {/* Botón Acción Libre (Placeholder) */}
-            <button className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
-              <HiPencilSquare className="w-6 h-6" />
+            {/* 🛒 🚀 NUEVO: Botón Tienda (Reemplaza al lápiz) */}
+            <button onClick={() => onNavigate('tienda')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+              <HiShoppingBag className="w-6 h-6" />
             </button>
             
-            {/* 🚀 Botón Amigos / Notificaciones (Ahora con campana dinámica) */}
+            {/* Botón Amigos / Notificaciones (Campana dinámica) */}
             <button onClick={() => onNavigate('notificaciones')} className="relative flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiBell className="w-6 h-6" />
               {notificaciones && notificaciones.length > 0 && (

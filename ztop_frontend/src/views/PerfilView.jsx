@@ -1,19 +1,14 @@
 import React, { useState, useEffect, useContext } from 'react';
-// 🚀 Agregamos los íconos de la barra inferior (HiHome, HiChatBubbleLeftRight, HiBell, HiPencilSquare)
 import { 
   HiTrophy, HiFire, HiEnvelope, HiIdentification, HiCalendar, HiArrowLeftOnRectangle, HiArrowLeft,
   HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser
 } from "react-icons/hi2";
 import { FaGamepad } from "react-icons/fa6";
-// 🚀 Importamos el contexto social para leer las notificaciones
 import { SocialContext } from '../context/SocialContext';
 
-// 🚀 Cambiamos onBack por onNavigate para alinearnos con App.jsx
 const PerfilView = ({ onNavigate, onLogout }) => {
-  // 🧠 Consumimos las notificaciones del radar global
   const { notificaciones } = useContext(SocialContext);
 
-  // 📱 Estados para la carga asíncrona de los datos de la REST API
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -52,7 +47,6 @@ const PerfilView = ({ onNavigate, onLogout }) => {
     obtenerDatosPerfil();
   }, []);
 
-  // 📴 Manejador para purgar la sesión del smartphone
   const handleCerrarSesion = () => {
     localStorage.removeItem('ztop_token');
     localStorage.removeItem('ztop_username');
@@ -72,8 +66,11 @@ const PerfilView = ({ onNavigate, onLogout }) => {
     );
   }
 
+  // 🚀 MEJORA: Calculamos el nivel dinámicamente y preparamos el avatar único
+  const nivelJugador = Math.floor((perfil?.puntaje_total || 0) / 500) + 1;
+  const avatarSrc = perfil?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${perfil?.username || 'ztop'}`;
+
   return (
-    // 🚀 Ajustamos el contenedor principal para soportar la barra inferior de navegación
     <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden select-none">
       
       <div className="flex-grow w-full px-6 py-6 overflow-y-auto scrollbar-hide">
@@ -81,8 +78,8 @@ const PerfilView = ({ onNavigate, onLogout }) => {
         {/* 🔝 TOP NAVBAR */}
         <div className="w-full flex items-center justify-between pb-4 border-b border-white/10">
           <button 
-            onClick={() => onNavigate ? onNavigate('home') : null} // 🚀 Fix del botón de retroceso
-            className="p-2.5 bg-brand-primary/40 rounded-xl text-white/80 active:scale-95 transition-all border border-white/5"
+            onClick={() => onNavigate ? onNavigate('home') : null}
+            className="p-2.5 bg-brand-primary/40 rounded-xl text-white/80 active:scale-95 transition-all border border-white/5 shadow-touch-1"
           >
             <HiArrowLeft className="w-5 h-5" />
           </button>
@@ -90,18 +87,18 @@ const PerfilView = ({ onNavigate, onLogout }) => {
           <div className="w-10 h-10 opacity-0"></div>
         </div>
 
-        {/* 👤 SECCIÓN CENTRAL 1: Avatar y Username */}
+        {/* 👤 SECCIÓN CENTRAL 1: Avatar Dinámico y Username */}
         <div className="w-full flex flex-col items-center py-6 text-center space-y-3">
           <div className="relative">
             <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-brand-secondary to-brand-accent p-1 shadow-touch-3 animate-pulse-vibrant">
               <img 
-                src={perfil?.avatar_url || "https://api.dicebear.com/7.x/bottts/svg?seed=ztop"} 
-                alt="Avatar" 
+                src={avatarSrc} 
+                alt="Avatar del Jugador" 
                 className="w-full h-full object-cover bg-brand-darkBg rounded-full"
               />
             </div>
-            <span className="absolute bottom-0 right-0 h-6 px-2 bg-brand-accent text-brand-darkBg font-title text-xxs font-black uppercase rounded-md flex items-center tracking-wider">
-              LVL {Math.floor((perfil?.puntaje_total || 0) / 500) + 1}
+            <span className="absolute bottom-0 right-0 h-6 px-2 bg-brand-accent text-brand-darkBg font-title text-xxs font-black uppercase rounded-md flex items-center tracking-wider shadow-md">
+              LVL {nivelJugador}
             </span>
           </div>
           
@@ -137,7 +134,7 @@ const PerfilView = ({ onNavigate, onLogout }) => {
         </div>
 
         {/* 📋 SECCIÓN CENTRAL 3: Desglose de Datos Personales */}
-        <div className="w-full bg-brand-primary/20 rounded-2xl p-4 border border-white/5 space-y-4 mt-6">
+        <div className="w-full bg-brand-primary/20 rounded-2xl p-4 border border-white/5 space-y-4 mt-6 shadow-touch-1">
           
           <div className="flex items-center space-x-4">
             <div className="w-10 h-10 bg-brand-primary/60 rounded-xl flex items-center justify-center border border-white/5">
@@ -189,21 +186,23 @@ const PerfilView = ({ onNavigate, onLogout }) => {
         </div>
 
         {error && (
-          <p className="text-center font-sans text-xs text-red-400 bg-red-500/10 py-3 rounded-xl border border-red-500/20">
+          <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-xs text-red-400 font-sans">
             ⚠️ {error}
-          </p>
+          </div>
         )}
 
       </div>
 
-      {/* 📱 BOTTOM NAV BAR (La misma de toda la App, con el perfil activo) */}
+      {/* 📱 BOTTOM NAV BAR (Sin la tienda, manteniendo el Lápiz y la consistencia anterior) */}
       <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md">
         <button onClick={() => onNavigate('home')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiHome className="w-6 h-6" />
         </button>
+        
         <button onClick={() => onNavigate('chats')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiChatBubbleLeftRight className="w-6 h-6" />
         </button>
+        
         <button onClick={() => alert("Sección: Configuración rápida de Grupos de Amigos")} className="flex flex-col items-center justify-center text-white/40 active:text-brand-accent active:scale-90 transition-all">
           <HiPencilSquare className="w-6 h-6" />
         </button>

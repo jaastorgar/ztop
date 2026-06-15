@@ -8,4 +8,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('juego.urls')),
     path('api/social/', include('social.urls')),
+    path('api/tienda/', include('tienda.urls')),
 ]

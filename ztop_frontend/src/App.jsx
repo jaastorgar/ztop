@@ -14,6 +14,7 @@ import PerfilView from './views/PerfilView';
 import ChatsView from './views/ChatsView';
 import NotificacionesView from './views/NotificacionesView';
 import ChatActivoView from './views/ChatActivoView';
+import TiendaView from './views/TiendaView';
 
 /**
  * 🎛️ Componente de Enrutamiento Condicional Interno (SPA)
@@ -74,6 +75,10 @@ const AppContent = () => {
     }
     if (vistaActiva === 'notificaciones') {
       return <NotificacionesView onNavigate={setVistaActiva} />;
+    }
+    // 🛒 NUEVO: Interceptor para renderizar la pantalla de la Tienda
+    if (vistaActiva === 'tienda') {
+      return <TiendaView onNavigate={setVistaActiva} />;
     }
   }
 
