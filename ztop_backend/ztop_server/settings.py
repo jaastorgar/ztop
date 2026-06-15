@@ -105,8 +105,8 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # 🌍 Internacionalización
-LANGUAGE_CODE = 'es-es'  # ✅ Cambiado a español
-TIME_ZONE = 'UTC'
+LANGUAGE_CODE = 'es-es'
+TIME_ZONE = 'America/Santiago'
 USE_I18N = True
 USE_TZ = True
 

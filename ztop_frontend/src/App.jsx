@@ -1,7 +1,8 @@
 import React, { useContext, useState } from 'react';
 // 🧠 Importamos los proveedores y contextos globales
 import { ZtopProvider, ZtopContext } from './context/ZtopContext';
-import { SocialProvider } from './context/SocialContext';
+// 🚀 Importamos ambos (Provider y Context) de lo social
+import { SocialProvider, SocialContext } from './context/SocialContext';
 
 // 📱 Importación de las vistas del ecosistema móvil completo
 import LoginView from './views/LoginView';
@@ -12,91 +13,88 @@ import PodioView from './views/PodioView';
 import PerfilView from './views/PerfilView';
 import ChatsView from './views/ChatsView';
 import NotificacionesView from './views/NotificacionesView';
+import ChatActivoView from './views/ChatActivoView';
 
 /**
  * 🎛️ Componente de Enrutamiento Condicional Interno (SPA)
- * Maneja el token de sesión y conmuta pantallas en tiempo real según el Servidor
  */
 const AppContent = () => {
-  // 🔌 Consumimos la variable de estado global gobernada por el WebSocket de partidas
   const { estadoJuego } = useContext(ZtopContext);
   
-  // 🔑 Estados locales para la persistencia del token de Django REST
+  // 🚀 Extraemos los interruptores sociales
+  const { iniciarSesionSocial, cerrarSesionSocial } = useContext(SocialContext);
+
   const [token, setToken] = useState(localStorage.getItem('ztop_token'));
   const [username, setUsername] = useState(localStorage.getItem('ztop_username'));
   
-  // 🧭 NUEVO: Controlador central de pestañas del menú inferior
-  // Opciones válidas: 'home', 'chats', 'notificaciones', 'perfil'
   const [vistaActiva, setVistaActiva] = useState('home'); 
+  // 🚀 Estado para saber qué chat está abierto
+  const [chatSeleccionado, setChatSeleccionado] = useState(null); 
 
-  // Manejador que se ejecuta al autenticarse con éxito en LoginView
   const handleLoginSuccess = (userToken, userLogin) => {
     setToken(userToken);
     setUsername(userLogin);
+    // 🚀 DISPARADOR: ¡Le decimos al servidor que acabamos de llegar!
+    if (iniciarSesionSocial) iniciarSesionSocial(); 
   };
 
-  // Manejador para limpiar credenciales al oprimir Cerrar Sesión
   const handleLogout = () => {
     setToken(null);
     setUsername(null);
-    setVistaActiva('home'); // Reseteamos a la vista principal al salir
+    setVistaActiva('home'); 
+    setChatSeleccionado(null); // Limpiamos el chat al salir
+    // 🚀 DISPARADOR: Apagamos el túnel y vaciamos los mensajes guardados al salir
+    if (cerrarSesionSocial) cerrarSesionSocial();
   };
 
-  // 🛡️ 1. GUARD DE SEGURIDAD: Si no hay sesión activa, forzamos el LoginView
+  // 🛡️ GUARD DE SEGURIDAD
   if (!token) {
     return <LoginView onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // 🧭 2. INTERCEPTORES DE PESTAÑAS: Menús de navegación fuera de partida
+  // 🧭 INTERCEPTORES DE NAVEGACIÓN
   if (estadoJuego === 'esperando') {
-    if (vistaActiva === 'perfil') {
+    
+    // 🚀 INTERCEPTOR PRIORITARIO: Si tocaste un chat, mostramos la pantalla de chat
+    if (chatSeleccionado) {
       return (
-        <PerfilView 
-          onNavigate={setVistaActiva} 
-          onLogout={handleLogout} 
+        <ChatActivoView 
+          chat={chatSeleccionado} 
+          onBack={() => setChatSeleccionado(null)} 
         />
       );
     }
+
+    if (vistaActiva === 'perfil') {
+      return <PerfilView onNavigate={setVistaActiva} onLogout={handleLogout} />;
+    }
     if (vistaActiva === 'chats') {
-      return <ChatsView onNavigate={setVistaActiva} />;
+      // 🚀 Le pasamos 'onOpenChat' para que los botones de amigos funcionen
+      return <ChatsView onNavigate={setVistaActiva} onOpenChat={setChatSeleccionado} />;
     }
     if (vistaActiva === 'notificaciones') {
       return <NotificacionesView onNavigate={setVistaActiva} />;
     }
   }
 
-  // 🔄 3. MÁQUINA DE ESTADOS EN TIEMPO REAL (Partidas)
+  // 🔄 MÁQUINA DE ESTADOS DEL JUEGO
   switch (estadoJuego) {
     case 'esperando':
-      // El lobby ahora usa `onNavigate` para que funcione la barra inferior
       return <LobbyView onNavigate={setVistaActiva} />;
-
     case 'en_ronda':
     case 'cuenta_regresiva':
-      // Fase de juego: Escritura activa en inputs y cronómetro de pánico de 10s
       return <GameActiveView />;
-
     case 'evaluacion':
-      // Módulo interactivo de revisión categoría por categoría
       return <VotingView />;
-
     case 'resultados':
-      // Despliegue del gran podio de campeones y posiciones globales acumuladas
       return <PodioView />;
-
     default:
-      // Fallback seguro de resguardo para entornos smartphone
       return <LobbyView onNavigate={setVistaActiva} />;
   }
 };
 
-/**
- * 🏛️ Componente Raíz de la Aplicación ztop!
- * Encapsula todo el árbol de componentes bajo los paraguas de los Túneles de Sockets
- */
 export default function App() {
   return (
-    /* 🚀 Envolvemos TODA la aplicación con el contexto Social y de Juego */
     <SocialProvider>
       <ZtopProvider>
         <div className="w-full h-full min-h-svh bg-brand-darkBg antialiased select-none">

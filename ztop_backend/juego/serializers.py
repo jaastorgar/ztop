@@ -4,6 +4,9 @@ from django.db import transaction
 from .models import PerfilUsuario, Sala, Ronda, RespuestaJugador
 
 class PerfilUsuarioSerializer(serializers.ModelSerializer):
+    # 🚀 SOLUCIÓN: Le enseñamos a Django a buscar el correo en el modelo User original
+    email = serializers.EmailField(source='usuario.email', read_only=True)
+
     class Meta:
         model = PerfilUsuario
         fields = [
@@ -29,6 +32,8 @@ class RegistroUsuarioSerializer(serializers.ModelSerializer):
                 email=perfil_data.get('email', ''),
                 password=validated_data['password']
             )
+            # Borramos el email y username del diccionario del perfil porque 
+            # ya se guardaron en el modelo User principal
             perfil_data.pop('username', None)
             perfil_data.pop('email', None)
             PerfilUsuario.objects.create(usuario=user, username=user.username, **perfil_data)

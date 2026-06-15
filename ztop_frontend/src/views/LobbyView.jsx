@@ -6,6 +6,8 @@ import {
   HiSparkles, HiBeaker
 } from "react-icons/hi2";
 import { ZtopContext } from '../context/ZtopContext';
+// 🚀 NUEVO: Importamos el contexto social para las notificaciones
+import { SocialContext } from '../context/SocialContext';
 
 // 🚀 MEJORA: Recibimos 'onNavigate' en lugar de 'onGoToPerfil'
 const LobbyView = ({ onNavigate }) => {
@@ -23,6 +25,9 @@ const LobbyView = ({ onNavigate }) => {
     modoJuego,    // 🚀 Estado del modo de juego
     cambiarModo   // 🚀 Función para cambiar el modo
   } = useContext(ZtopContext);
+
+  // 🚀 NUEVO: Consumimos las notificaciones del radar social global
+  const { notificaciones } = useContext(SocialContext);
 
   // 📱 Estados locales
   const [pinInput, setPinInput] = useState('');
@@ -214,9 +219,12 @@ const LobbyView = ({ onNavigate }) => {
               <HiPencilSquare className="w-6 h-6" />
             </button>
             
-            {/* Botón Amigos / Notificaciones */}
-            <button onClick={() => onNavigate('notificaciones')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+            {/* 🚀 Botón Amigos / Notificaciones (Ahora con campana dinámica) */}
+            <button onClick={() => onNavigate('notificaciones')} className="relative flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiBell className="w-6 h-6" />
+              {notificaciones && notificaciones.length > 0 && (
+                <span className="absolute top-0 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-brand-darkBg"></span>
+              )}
             </button>
             
             {/* Botón Perfil */}
