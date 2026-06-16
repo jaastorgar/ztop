@@ -12,11 +12,12 @@ class ItemCosmetico(models.Model):
     nombre = models.CharField(max_length=50, unique=True)
     seed = models.CharField(max_length=100, help_text="La semilla de DiceBear")
     categoria = models.CharField(max_length=20, choices=CATEGORIAS, default='bottts')
-    precio = models.IntegerField(default=100)
+    precio = models.IntegerField(default=100, help_text="Precio en monedas. 0 si es exclusivo por nivel.")
+    nivel_requerido = models.IntegerField(default=1, help_text="Nivel mínimo para desbloquearlo gratis (1, 5, 10, 15...)")
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.nombre} ({self.get_categoria_display()}) - ${self.precio}"
+        return f"{self.nombre} (Lvl Requerido: {self.nivel_requerido}) - ${self.precio} Monedas"
 
 class Monedero(models.Model):
     perfil = models.OneToOneField(PerfilUsuario, on_delete=models.CASCADE, related_name='monedero')

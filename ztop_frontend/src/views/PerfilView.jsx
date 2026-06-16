@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   HiTrophy, HiFire, HiEnvelope, HiIdentification, HiCalendar, HiArrowLeftOnRectangle, HiArrowLeft,
-  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser
+  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser, HiXMark
 } from "react-icons/hi2";
 import { FaGamepad } from "react-icons/fa6";
 import { SocialContext } from '../context/SocialContext';
@@ -13,39 +13,81 @@ const PerfilView = ({ onNavigate, onLogout }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    const obtenerDatosPerfil = async () => {
-      const token = localStorage.getItem('ztop_token');
-      if (!token) {
-        setError('No se encontró un token de sesión válido.');
-        setLoading(false);
-        return;
-      }
+  // 🚀 ESTADOS PARA EL SELECTOR DE MONITOS
+  const [isModalAbierto, setIsModalAbierto] = useState(false);
+  const [misAvatares, setMisAvatares] = useState([]);
+  const [loadingAvatares, setLoadingAvatares] = useState(false);
 
-      try {
-        const response = await fetch('http://192.168.18.199:8000/api/auth/perfil/', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Token ${token}`
-          }
-        });
-        const data = await response.json();
+  const obtenerDatosPerfil = async () => {
+    const token = localStorage.getItem('ztop_token');
+    if (!token) {
+      setError('No se encontró un token de sesión válido.');
+      setLoading(false);
+      return;
+    }
 
-        if (response.ok) {
-          setPerfil(data); 
-        } else {
-          setError(data.error || 'No se pudo cargar el perfil.');
+    try {
+      const response = await fetch('http://192.168.18.199:8000/api/auth/perfil/', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
         }
-      } catch (err) {
-        setError('Error de comunicación con el servidor.');
-      } finally {
-        setLoading(false);
-      }
-    };
+      });
+      const data = await response.json();
 
+      if (response.ok) {
+        setPerfil(data); 
+      } else {
+        setError(data.error || 'No se pudo cargar el perfil.');
+      }
+    } catch (err) {
+      setError('Error de comunicación con el servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     obtenerDatosPerfil();
   }, []);
+
+  // 🚀 Cargar avatares desbloqueados al abrir el modal
+  const abrirSelectorAvatar = async () => {
+    setIsModalAbierto(true);
+    setLoadingAvatares(true);
+    const token = localStorage.getItem('ztop_token');
+    try {
+      const res = await fetch('http://192.168.18.199:8000/api/tienda/mis-avatares/', {
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      if (res.ok) {
+        setMisAvatares(await res.json());
+      }
+    } catch (err) {
+      console.error("Error cargando tus monitos:", err);
+    } finally {
+      setLoadingAvatares(false);
+    }
+  };
+
+  // 🚀 Enviar orden de equipamiento al backend
+  const handleEquiparAvatar = async (itemId) => {
+    const token = localStorage.getItem('ztop_token');
+    try {
+      const res = await fetch(`http://192.168.18.199:8000/api/tienda/equipar/${itemId}/`, {
+        method: 'POST',
+        headers: { 'Authorization': `Token ${token}` }
+      });
+      if (res.ok) {
+        setIsModalAbierto(false);
+        setLoading(true); // Ponemos en carga
+        await obtenerDatosPerfil(); // Recargamos la interfaz para ver la nueva foto
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleCerrarSesion = () => {
     localStorage.removeItem('ztop_token');
@@ -66,12 +108,12 @@ const PerfilView = ({ onNavigate, onLogout }) => {
     );
   }
 
-  // 🚀 MEJORA: Calculamos el nivel dinámicamente y preparamos el avatar único
+  // Calculamos el nivel dinámicamente y preparamos el avatar
   const nivelJugador = Math.floor((perfil?.puntaje_total || 0) / 500) + 1;
   const avatarSrc = perfil?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${perfil?.username || 'ztop'}`;
 
   return (
-    <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden select-none">
+    <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden select-none relative">
       
       <div className="flex-grow w-full px-6 py-6 overflow-y-auto scrollbar-hide">
         
@@ -87,9 +129,13 @@ const PerfilView = ({ onNavigate, onLogout }) => {
           <div className="w-10 h-10 opacity-0"></div>
         </div>
 
-        {/* 👤 SECCIÓN CENTRAL 1: Avatar Dinámico y Username */}
+        {/* 👤 SECCIÓN CENTRAL 1: Avatar Interactivo (Haz clic para cambiar) */}
         <div className="w-full flex flex-col items-center py-6 text-center space-y-3">
-          <div className="relative">
+          <button 
+            onClick={abrirSelectorAvatar}
+            className="relative group active:scale-95 transition-all focus:outline-none"
+            title="Haz clic para cambiar de monito"
+          >
             <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-brand-secondary to-brand-accent p-1 shadow-touch-3 animate-pulse-vibrant">
               <img 
                 src={avatarSrc} 
@@ -100,7 +146,11 @@ const PerfilView = ({ onNavigate, onLogout }) => {
             <span className="absolute bottom-0 right-0 h-6 px-2 bg-brand-accent text-brand-darkBg font-title text-xxs font-black uppercase rounded-md flex items-center tracking-wider shadow-md">
               LVL {nivelJugador}
             </span>
-          </div>
+            {/* 🚀 Overlay oscuro que dice "CAMBIAR" al mantener presionado o pasar el mouse */}
+            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="text-white text-[10px] font-title font-bold tracking-wider">CAMBIAR</span>
+            </div>
+          </button>
           
           <div>
             <h2 className="font-title text-2xl font-bold text-white tracking-wide">
@@ -192,6 +242,68 @@ const PerfilView = ({ onNavigate, onLogout }) => {
         )}
 
       </div>
+
+      {/* 📱 PANEL MODAL OVERLAY: GESTOR DE MONITOS DESBLOQUEADOS */}
+      {isModalAbierto && (
+        <div className="absolute inset-0 bg-brand-darkBg/90 z-50 flex flex-col justify-end animate-fade-in">
+          <div className="w-full max-h-[75vh] bg-brand-primary/90 border-t border-white/10 rounded-t-3xl p-6 flex flex-col space-y-4 shadow-touch-3 backdrop-blur-lg animate-slide-up">
+            
+            {/* Header del modal */}
+            <div className="w-full flex items-center justify-between border-b border-white/5 pb-3">
+              <div>
+                <h3 className="font-title text-base font-bold text-white">Tus Monitos Desbloqueados</h3>
+                <p className="font-sans text-xxs text-white/40">Toca uno para equipártelo al instante</p>
+              </div>
+              <button 
+                onClick={() => setIsModalAbierto(false)}
+                className="p-2 bg-brand-darkBg/80 border border-white/10 rounded-xl text-white/60 active:scale-95"
+              >
+                <HiXMark className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Listado en Rejilla */}
+            {loadingAvatares ? (
+              <div className="w-full py-12 flex items-center justify-center">
+                <div className="w-8 h-8 border-4 border-brand-accent border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <div className="w-full flex-grow overflow-y-auto grid grid-cols-3 gap-3 pb-6 scrollbar-hide">
+                {/* 🚀 Avatar por defecto del sistema (Inicial) */}
+                <div 
+                  onClick={() => handleEquiparAvatar(0)} 
+                  className="bg-brand-darkBg/50 border border-white/5 rounded-xl p-2 flex flex-col items-center justify-center text-center space-y-1 active:scale-95 transition-all cursor-pointer"
+                >
+                  <img src={`https://api.dicebear.com/7.x/bottts/svg?seed=${perfil?.username}`} alt="Defecto" className="w-12 h-12" />
+                  <span className="font-sans text-[9px] font-bold text-brand-accent uppercase">Inicial</span>
+                </div>
+
+                {/* Lista devuelta por el backend */}
+                {misAvatares.map((item) => {
+                  const esElActual = avatarSrc.includes(item.seed);
+                  return (
+                    <div 
+                      key={item.id}
+                      onClick={() => handleEquiparAvatar(item.id)}
+                      className={`border rounded-xl p-2 flex flex-col items-center justify-center text-center space-y-1 active:scale-95 transition-all cursor-pointer relative ${
+                        esElActual ? 'bg-brand-accent/10 border-brand-accent' : 'bg-brand-darkBg/50 border-white/5'
+                      }`}
+                    >
+                      <img src={`https://api.dicebear.com/7.x/${item.categoria}/svg?seed=${item.seed}`} alt={item.nombre} className="w-12 h-12" />
+                      <span className="font-sans text-[9px] text-white/80 truncate max-w-[75px] block">{item.nombre}</span>
+                      {item.nivel_requerido > 1 && (
+                        <span className="bg-brand-secondary/60 text-white text-[7px] px-1 rounded font-title absolute top-1 right-1">
+                          Lvl {item.nivel_requerido}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 📱 BOTTOM NAV BAR (Sin la tienda, manteniendo el Lápiz y la consistencia anterior) */}
       <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md">
