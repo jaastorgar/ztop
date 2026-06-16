@@ -89,7 +89,14 @@ const TiendaView = ({ onNavigate }) => {
           {catalogo.map((item) => (
             <div key={item.id} className="bg-brand-primary/20 border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-between text-center space-y-3 relative overflow-hidden">
               <div className="w-20 h-20 bg-brand-darkBg/60 rounded-full p-2 border border-white/5">
-                <img src={`https://api.dicebear.com/7.x/${item.categoria}/svg?seed=${item.seed}`} alt={item.nombre} className="w-full h-full object-contain" />
+                {/* 🚀 MEJORA: Renderizado condicional de la imagen según la categoría */}
+                <img 
+                  src={item.categoria === 'minecraft' 
+                    ? `https://minotar.net/helm/${item.seed}/150.png` 
+                    : `https://api.dicebear.com/7.x/${item.categoria}/svg?seed=${item.seed}`} 
+                  alt={item.nombre} 
+                  className="w-full h-full object-contain" 
+                />
               </div>
               
               <div>

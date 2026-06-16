@@ -72,8 +72,12 @@ class EquiparItemView(APIView):
             if not (es_valido_por_nivel or es_valido_por_compra):
                 return Response({"error": f"Bloqueado. Requiere nivel {item.nivel_requerido} o comprarlo."}, status=status.HTTP_400_BAD_REQUEST)
             
-            # Formateamos dinámicamente la URL de DiceBear según su categoría y semilla
-            nueva_url = f"https://api.dicebear.com/7.x/{item.categoria}/svg?seed={item.seed}"
+            # 🚀 SOLUCIÓN: Usamos la API de Minotar para Minecraft o DiceBear para el resto
+            if item.categoria == 'minecraft':
+                nueva_url = f"https://minotar.net/helm/{item.seed}/150.png"
+            else:
+                nueva_url = f"https://api.dicebear.com/7.x/{item.categoria}/svg?seed={item.seed}"
+            
             perfil.avatar_url = nueva_url
             perfil.save()
             

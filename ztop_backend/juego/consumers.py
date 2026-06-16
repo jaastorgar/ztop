@@ -238,8 +238,14 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                     max_puntos = resp.total_puntos_ronda
                 resp.save()
                 
+            # 🚀 AQUÍ ES DONDE SUCEDE LA MAGIA DE LA ECONOMÍA
+            # Importamos Monedero aquí para evitar errores de importación circular
+            from tienda.models import Monedero 
+
             for resp in respuestas:
                 perfil = resp.jugador
+                
+                # 1. Guardamos las estadísticas normales del juego
                 perfil.puntaje_total += resp.total_puntos_ronda
                 perfil.partidas_jugadas += 1
                 
@@ -247,6 +253,17 @@ class JuegoConsumer(AsyncWebsocketConsumer):
                     perfil.partidas_ganadas += 1
                 
                 perfil.save(update_fields=['puntaje_total', 'partidas_jugadas', 'partidas_ganadas'])
+                
+                # 2. 💰 NUEVO: Pago de Monedas (10% de los puntos de la ronda)
+                if resp.total_puntos_ronda > 0:
+                    tasa_conversion = 0.10
+                    monedas_ganadas = int(resp.total_puntos_ronda * tasa_conversion)
+                    
+                    # Usamos get_or_create de forma segura por si el usuario es nuevo
+                    monedero, created = Monedero.objects.get_or_create(perfil=perfil)
+                    monedero.monedas += monedas_ganadas
+                    monedero.save()
+                    print(f"💰 Se pagaron {monedas_ganadas} monedas a {perfil.username}")
                 
             return True
         except Exception as e:

@@ -6,7 +6,8 @@ class ItemCosmetico(models.Model):
         ('bottts', 'Robots (Bottts)'),
         ('pixel-art', 'Pixel Art'),
         ('avataaars', 'Personas (Avataaars)'),
-        ('monsters', 'Monstruos'),
+        ('fun-emoji', 'Emojis Divertidos'),
+        ('minecraft', 'Minecraft (Ultra VIP)'),
     ]
     
     nombre = models.CharField(max_length=50, unique=True)
