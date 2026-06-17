@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   HiTrophy, HiFire, HiEnvelope, HiIdentification, HiCalendar, HiArrowLeftOnRectangle, HiArrowLeft,
-  HiHome, HiChatBubbleLeftRight, HiBell, HiUser, HiXMark, HiSparkles, HiUserGroup
+  HiHome, HiChatBubbleLeftRight, HiBell, HiUser, HiXMark, HiSparkles, HiUserGroup, HiShoppingBag
 } from "react-icons/hi2";
 import { FaGamepad } from "react-icons/fa6";
 import { SocialContext } from '../context/SocialContext';
@@ -61,10 +61,8 @@ const PerfilView = ({ onNavigate, onLogout }) => {
       const nivelActual = Math.floor((perfil.puntaje_total || 0) / 500) + 1;
       const ultimoCelebrado = parseInt(localStorage.getItem('ztop_ultimo_nivel_celebrado') || '0', 10);
 
-      // Verificamos si es múltiplo de 5 y si es mayor al último que ya celebramos
       if (nivelActual > 1 && nivelActual % 5 === 0 && nivelActual > ultimoCelebrado) {
         setMostrarCelebracion(true);
-        // Guardamos en la memoria del celular para no repetir la fiesta por este mismo nivel
         localStorage.setItem('ztop_ultimo_nivel_celebrado', nivelActual.toString());
       }
     }
@@ -108,9 +106,7 @@ const PerfilView = ({ onNavigate, onLogout }) => {
   const handleCerrarSesion = () => {
     localStorage.removeItem('ztop_token');
     localStorage.removeItem('ztop_username');
-    if (onLogout) {
-      onLogout(); 
-    }
+    if (onLogout) onLogout(); 
   };
 
   if (loading) {
@@ -126,11 +122,14 @@ const PerfilView = ({ onNavigate, onLogout }) => {
 
   const nivelJugador = Math.floor((perfil?.puntaje_total || 0) / 500) + 1;
   const avatarSrc = perfil?.avatar_url || `https://api.dicebear.com/7.x/bottts/svg?seed=${perfil?.username || 'ztop'}`;
+  
+  // 🚀 LÓGICA: Validamos si la URL del avatar apunta al servicio 3D para darle estilo de cubo
+  const esAvatar3D = avatarSrc.includes('minotar.net');
 
   return (
     <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden select-none relative">
       
-      <div className="flex-grow w-full px-6 py-6 overflow-y-auto scrollbar-hide">
+      <div className="flex-grow w-full px-6 py-6 overflow-y-auto scrollbar-hide pb-24">
         
         {/* 🔝 TOP NAVBAR */}
         <div className="w-full flex items-center justify-between pb-4 border-b border-white/10">
@@ -151,23 +150,24 @@ const PerfilView = ({ onNavigate, onLogout }) => {
             className="relative group active:scale-95 transition-all focus:outline-none"
             title="Haz clic para cambiar de monito"
           >
-            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-brand-secondary to-brand-accent p-1 shadow-touch-3 animate-pulse-vibrant">
+            {/* 🚀 MEJORA: El contenedor cambia de círculo a cubo redondeado si es Anime/VIP 3D */}
+            <div className={`w-24 h-24 bg-gradient-to-tr from-brand-secondary to-brand-accent p-1 shadow-touch-3 animate-pulse-vibrant ${esAvatar3D ? 'rounded-xl' : 'rounded-full'}`}>
               <img 
                 src={avatarSrc} 
                 alt="Avatar del Jugador" 
-                className="w-full h-full object-cover bg-brand-darkBg rounded-full"
+                className={`w-full h-full object-cover bg-brand-darkBg ${esAvatar3D ? 'rounded-lg' : 'rounded-full'}`}
               />
             </div>
             <span className="absolute bottom-0 right-0 h-6 px-2 bg-brand-accent text-brand-darkBg font-title text-xxs font-black uppercase rounded-md flex items-center tracking-wider shadow-md">
               LVL {nivelJugador}
             </span>
-            <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className={`absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ${esAvatar3D ? 'rounded-xl' : 'rounded-full'}`}>
               <span className="text-white text-[10px] font-title font-bold tracking-wider">CAMBIAR</span>
             </div>
           </button>
           
           <div>
-            <h2 className="font-title text-2xl font-bold text-white tracking-wide">
+            <h2 className="font-title text-2xl font-bold text-white tracking-wide flex items-center justify-center">
               @{perfil?.username}
             </h2>
             <p className="font-sans text-xs text-brand-lightBg/60 mt-0.5">
@@ -259,10 +259,7 @@ const PerfilView = ({ onNavigate, onLogout }) => {
       {mostrarCelebracion && (
         <div className="absolute inset-0 z-[100] flex items-center justify-center bg-black/85 backdrop-blur-sm animate-fade-in px-6">
           <div className="relative flex flex-col items-center justify-center p-8 w-full bg-gradient-to-br from-brand-secondary to-brand-primary border border-brand-accent/50 rounded-3xl shadow-[0_0_50px_rgba(10,232,198,0.4)] transform scale-100 animate-slide-up text-center space-y-5">
-            
-            {/* Brillo de fondo */}
             <div className="absolute top-4 left-1/2 -translate-x-1/2 w-32 h-32 bg-brand-accent rounded-full blur-3xl opacity-30 animate-pulse-vibrant"></div>
-            
             <HiSparkles className="w-20 h-20 text-brand-accent relative z-10 drop-shadow-[0_0_15px_rgba(10,232,198,0.8)]" />
             
             <div className="relative z-10">
@@ -277,7 +274,7 @@ const PerfilView = ({ onNavigate, onLogout }) => {
             <button 
               onClick={() => {
                 setMostrarCelebracion(false);
-                abrirSelectorAvatar(); // Directo al selector de monitos
+                abrirSelectorAvatar();
               }}
               className="relative z-10 w-full mt-4 h-14 bg-brand-accent text-brand-darkBg font-title text-sm font-bold tracking-widest uppercase rounded-xl shadow-[0_0_20px_rgba(10,232,198,0.5)] active:scale-95 transition-all"
             >
@@ -287,7 +284,7 @@ const PerfilView = ({ onNavigate, onLogout }) => {
         </div>
       )}
 
-      {/* 📱 PANEL MODAL OVERLAY: GESTOR DE MONITOS DESBLOQUEADOS */}
+      {/* 📱 PANEL MODAL OVERLAY: GESTOR DE MONITOS */}
       {isModalAbierto && (
         <div className="absolute inset-0 bg-brand-darkBg/90 z-[90] flex flex-col justify-end animate-fade-in">
           <div className="w-full max-h-[75vh] bg-brand-primary/90 border-t border-white/10 rounded-t-3xl p-6 flex flex-col space-y-4 shadow-touch-3 backdrop-blur-lg animate-slide-up">
@@ -321,6 +318,8 @@ const PerfilView = ({ onNavigate, onLogout }) => {
 
                 {misAvatares.map((item) => {
                   const esElActual = avatarSrc.includes(item.seed);
+                  const es3D = item.categoria === 'minecraft' || item.categoria === 'anime-3d'; // 🚀 SOPORTE ANIME 3D
+                  
                   return (
                     <div 
                       key={item.id}
@@ -329,13 +328,12 @@ const PerfilView = ({ onNavigate, onLogout }) => {
                         esElActual ? 'bg-brand-accent/10 border-brand-accent' : 'bg-brand-darkBg/50 border-white/5'
                       }`}
                     >
-                      {/* 🚀 Renderizado con soporte oficial para Minecraft */}
                       <img 
-                        src={item.categoria === 'minecraft' 
+                        src={es3D 
                           ? `https://minotar.net/helm/${item.seed}/150.png` 
                           : `https://api.dicebear.com/7.x/${item.categoria}/svg?seed=${item.seed}`} 
                         alt={item.nombre} 
-                        className="w-12 h-12 rounded-md" 
+                        className={`w-12 h-12 ${es3D ? 'rounded-md' : ''}`} 
                       />
                       <span className="font-sans text-[9px] text-white/80 truncate max-w-[75px] block">{item.nombre}</span>
                       {item.nivel_requerido > 1 && (
@@ -352,28 +350,28 @@ const PerfilView = ({ onNavigate, onLogout }) => {
         </div>
       )}
 
-      {/* 📱 BOTTOM NAV BAR */}
-      <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md">
+      {/* 📱 BOTTOM NAV BAR (6 BOTONES CON SHOPPING BAG INCLUIDO) */}
+      <div className="absolute bottom-0 w-full h-20 bg-brand-primary/30 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-xl">
         <button onClick={() => onNavigate('home')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiHome className="w-6 h-6" />
         </button>
-        
         <button onClick={() => onNavigate('chats')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiChatBubbleLeftRight className="w-6 h-6" />
         </button>
-        
-        {/* 🚀 SOLUCIÓN: Botón de Clanes Integrado (Reemplaza al alert de Configuración) */}
+        <button onClick={() => onNavigate('tienda')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+          <HiShoppingBag className="w-6 h-6" />
+        </button>
         <button onClick={() => onNavigate('clanes')} className="flex flex-col items-center justify-center text-white/40 active:text-brand-accent active:scale-90 transition-all">
           <HiUserGroup className="w-6 h-6" />
         </button>
-        
         <button onClick={() => onNavigate('notificaciones')} className="relative flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiBell className="w-6 h-6" />
           {notificaciones && notificaciones.length > 0 && (
             <span className="absolute top-0 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border border-brand-darkBg"></span>
           )}
         </button>
-
+        
+        {/* 👤 Ícono de PERFIL ACTIVO */}
         <button className="flex flex-col items-center justify-center space-y-1 text-brand-accent group">
           <HiUser className="w-6 h-6 drop-shadow-[0_2px_8px_rgba(10,232,198,0.4)]" />
           <div className="w-1 h-1 bg-brand-accent rounded-full"></div>
