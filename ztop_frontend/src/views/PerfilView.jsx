@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { 
   HiTrophy, HiFire, HiEnvelope, HiIdentification, HiCalendar, HiArrowLeftOnRectangle, HiArrowLeft,
-  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser, HiXMark, HiSparkles
+  HiHome, HiChatBubbleLeftRight, HiBell, HiUser, HiXMark, HiSparkles, HiUserGroup
 } from "react-icons/hi2";
 import { FaGamepad } from "react-icons/fa6";
 import { SocialContext } from '../context/SocialContext';
@@ -362,8 +362,9 @@ const PerfilView = ({ onNavigate, onLogout }) => {
           <HiChatBubbleLeftRight className="w-6 h-6" />
         </button>
         
-        <button onClick={() => alert("Sección: Configuración rápida de Grupos de Amigos")} className="flex flex-col items-center justify-center text-white/40 active:text-brand-accent active:scale-90 transition-all">
-          <HiPencilSquare className="w-6 h-6" />
+        {/* 🚀 SOLUCIÓN: Botón de Clanes Integrado (Reemplaza al alert de Configuración) */}
+        <button onClick={() => onNavigate('clanes')} className="flex flex-col items-center justify-center text-white/40 active:text-brand-accent active:scale-90 transition-all">
+          <HiUserGroup className="w-6 h-6" />
         </button>
         
         <button onClick={() => onNavigate('notificaciones')} className="relative flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">

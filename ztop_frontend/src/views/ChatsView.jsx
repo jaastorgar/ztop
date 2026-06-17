@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { 
-  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser, HiUserGroup
+  HiHome, HiChatBubbleLeftRight, HiBell, HiUser, HiUserGroup
 } from "react-icons/hi2";
 import { SocialContext } from '../context/SocialContext';
 
@@ -18,11 +18,12 @@ const ChatsView = ({ onNavigate, onOpenChat }) => {
         <h1 className="font-title text-2xl font-black tracking-widest text-white uppercase drop-shadow-md">
           MENSAJES<span className="text-brand-accent">!</span>
         </h1>
+        {/* 🚀 SOLUCIÓN: Botón superior conectado a Clanes */}
         <button 
-          onClick={() => alert("Función: Crear conversación o grupo nuevo")}
+          onClick={() => onNavigate('clanes')}
           className="w-10 h-10 bg-brand-primary/40 border border-white/10 rounded-full flex items-center justify-center active:scale-95 transition-all hover:bg-brand-primary/60"
         >
-          <HiPencilSquare className="w-5 h-5 text-brand-accent" />
+          <HiUserGroup className="w-5 h-5 text-brand-accent" />
         </button>
       </div>
 
@@ -73,11 +74,12 @@ const ChatsView = ({ onNavigate, onOpenChat }) => {
           <div className="w-1 h-1 bg-brand-accent rounded-full"></div>
         </button>
         
-        <button onClick={() => alert("Sección: Configuración rápida de Grupos de Amigos")} className="flex flex-col items-center justify-center text-white/40 active:text-brand-accent active:scale-90 transition-all">
-          <HiPencilSquare className="w-6 h-6" />
+        {/* 🚀 SOLUCIÓN: Botón central inferior conectado a Clanes */}
+        <button onClick={() => onNavigate('clanes')} className="flex flex-col items-center justify-center text-white/40 active:text-brand-accent active:scale-90 transition-all">
+          <HiUserGroup className="w-6 h-6" />
         </button>
         
-        {/* 🚀 SOLUCIÓN DILEMA 2: Campana con aviso rojo constante en toda la app */}
+        {/* Campana con aviso rojo constante en toda la app */}
         <button onClick={() => onNavigate('notificaciones')} className="relative flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiBell className="w-6 h-6" />
           {notificaciones.length > 0 && (

@@ -1,111 +1,205 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone  # 🚀 IMPORTANTE: Para la corrección de la hora
+
+from .models import Clan, GrupoChat, MensajeChat, SolicitudAmistad
 from juego.models import PerfilUsuario
-from .models import SolicitudAmistad, GrupoChat, MensajeChat # 🚀 Agregamos MensajeChat
-from .serializers import PerfilUsuarioSerializer, SolicitudAmistadSerializer, GrupoChatSerializer
+from .serializers import (
+    ClanSerializer, 
+    PerfilUsuarioSerializer, 
+    GrupoChatSerializer, 
+    SolicitudAmistadSerializer,
+    MensajeChatSerializer # 👈 Importamos el serializador de mensajes
+)
+
+# ==========================================
+# 💬 SISTEMA ORIGINAL (Chats, Historial, Notificaciones y Búsqueda)
+# ==========================================
+
+class ListaChatsView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        perfil = request.user.perfil
+        # Trae todos los chats donde participa el usuario (1vs1 y Clanes)
+        chats = perfil.chats_participados.all().order_by('-fecha_creacion')
+        serializer = GrupoChatSerializer(chats, many=True, context={'request': request})
+        return Response(serializer.data)
+
+# 🚀 SOLUCIÓN: Vista para cargar el historial de mensajes de un chat específico
+class HistorialMensajesView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, chat_id):
+        try:
+            # Verificamos que el chat exista y que el usuario pertenezca a él por seguridad
+            chat = request.user.perfil.chats_participados.get(id=chat_id)
+            mensajes = chat.mensajes.all().order_by('timestamp')
+            serializer = MensajeChatSerializer(mensajes, many=True)
+            return Response(serializer.data)
+        except GrupoChat.DoesNotExist:
+            return Response({"error": "Chat no encontrado o no tienes permiso para verlo."}, status=status.HTTP_404_NOT_FOUND)
+
+class ListaNotificacionesView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        perfil = request.user.perfil
+        # Trae solo las solicitudes de amistad pendientes
+        solicitudes = SolicitudAmistad.objects.filter(receptor=perfil, estado='pendiente').order_by('-fecha_envio')
+        serializer = SolicitudAmistadSerializer(solicitudes, many=True)
+        return Response(serializer.data)
 
 class BuscarUsuariosView(APIView):
     permission_classes = [IsAuthenticated]
-
     def get(self, request):
         query = request.GET.get('q', '').strip()
         if not query:
             return Response([])
-            
-        # Busca usuarios por username, excluyendo al propio usuario que busca
-        usuarios = PerfilUsuario.objects.filter(
-            username__icontains=query
-        ).exclude(usuario=request.user)[:20] # Limitamos a 20 resultados por seguridad
         
-        serializer = PerfilUsuarioSerializer(usuarios, many=True)
-        return Response(serializer.data)
-
-class MisNotificacionesView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        perfil = request.user.perfil
-        # Solo obtenemos las solicitudes que nos llegaron y están pendientes
-        solicitudes = SolicitudAmistad.objects.filter(receptor=perfil, estado='pendiente')
-        serializer = SolicitudAmistadSerializer(solicitudes, many=True)
-        return Response(serializer.data)
-
-class MisChatsView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        perfil = request.user.perfil
-        # Traemos todos los chats donde el usuario es miembro
-        chats = perfil.chats_participados.all()
-        # Pasamos el 'request' al contexto para que el serializador sepa quién está pidiendo la info
-        serializer = GrupoChatSerializer(chats, many=True, context={'request': request})
+        # Busca usuarios por nombre, excluyendo al propio usuario que busca
+        resultados = PerfilUsuario.objects.filter(
+            usuario__username__icontains=query
+        ).exclude(usuario=request.user)[:15]
+        
+        serializer = PerfilUsuarioSerializer(resultados, many=True)
         return Response(serializer.data)
 
 class ResponderSolicitudView(APIView):
     permission_classes = [IsAuthenticated]
-
     def post(self, request, solicitud_id):
-        accion = request.data.get('accion') # Esperamos 'aceptar' o 'rechazar'
-        
         try:
-            solicitud = SolicitudAmistad.objects.get(
-                id=solicitud_id, 
-                receptor=request.user.perfil, 
-                estado='pendiente'
-            )
+            solicitud = SolicitudAmistad.objects.get(id=solicitud_id, receptor=request.user.perfil)
+            accion = request.data.get('accion') 
             
             if accion == 'aceptar':
                 solicitud.estado = 'aceptada'
                 solicitud.save()
                 
-                # 🚀 MAGIA: Al aceptar, creamos un chat 1vs1 automáticamente
-                chat_1v1 = GrupoChat.objects.create(es_grupo=False)
-                chat_1v1.miembros.add(solicitud.emisor, solicitud.receptor)
+                # Al aceptar, se crea el chat privado (1vs1)
+                chat = GrupoChat.objects.create(es_grupo=False)
+                chat.miembros.add(solicitud.emisor, solicitud.receptor)
                 
-                return Response({"status": "ok", "mensaje": "Amigo agregado y chat creado."})
+                return Response({"mensaje": "Solicitud aceptada. Chat privado creado."})
                 
             elif accion == 'rechazar':
                 solicitud.estado = 'rechazada'
                 solicitud.save()
-                return Response({"status": "ok", "mensaje": "Solicitud rechazada."})
+                return Response({"mensaje": "Solicitud rechazada."})
                 
-            return Response({"error": "Acción inválida."}, status=400)
-            
+            else:
+                return Response({"error": "Acción no válida."}, status=status.HTTP_400_BAD_REQUEST)
+                
         except SolicitudAmistad.DoesNotExist:
-            return Response({"error": "Solicitud no encontrada o ya procesada."}, status=404)
+            return Response({"error": "Solicitud no encontrada."}, status=status.HTTP_404_NOT_FOUND)
 
-# =========================================================================
-# 🚀 NUEVO: Vista para cargar el historial de mensajes sin errores 404
-# =========================================================================
-class HistorialMensajesView(APIView):
+
+# ==========================================
+# 🛡️ SISTEMA DE CLANES
+# ==========================================
+
+class RankingClanesView(APIView):
     permission_classes = [IsAuthenticated]
+    def get(self, request):
+        clanes = Clan.objects.all()
+        clanes_ordenados = sorted(clanes, key=lambda x: x.puntaje_total, reverse=True)
+        serializer = ClanSerializer(clanes_ordenados, many=True)
+        return Response(serializer.data)
 
-    def get(self, request, chat_id):
+class CrearClanView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        perfil = request.user.perfil
+        nombre = request.data.get('nombre', '').strip()
+        tag = request.data.get('tag', '').strip().upper()
+
+        if not nombre or not tag:
+            return Response({"error": "El nombre y el TAG son obligatorios."}, status=status.HTTP_400_BAD_REQUEST)
+        if len(tag) > 5:
+            return Response({"error": "El TAG no puede tener más de 5 caracteres."}, status=status.HTTP_400_BAD_REQUEST)
+        if perfil.clanes_unidos.exists():
+            return Response({"error": "Ya perteneces a un clan."}, status=status.HTTP_400_BAD_REQUEST)
+        if Clan.objects.filter(nombre__iexact=nombre).exists():
+            return Response({"error": "Ese nombre de clan ya está registrado."}, status=status.HTTP_400_BAD_REQUEST)
+        if Clan.objects.filter(tag__iexact=tag).exists():
+            return Response({"error": "Ese TAG de clan ya está en uso."}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            # 1. Validamos que el chat existe y que el usuario realmente pertenece a él (Seguridad)
-            chat = GrupoChat.objects.get(id=chat_id, miembros=request.user.perfil)
-            
-            # 2. Buscamos los mensajes de este chat ordenados por fecha
-            # Usamos un try/except por si la llave foránea se llama 'grupo' o 'chat' en tu modelo
-            try:
-                mensajes_bd = MensajeChat.objects.filter(grupo=chat).order_by('timestamp')
-            except Exception:
-                mensajes_bd = MensajeChat.objects.filter(chat=chat).order_by('timestamp')
+            with transaction.atomic():
+                chat_sala = GrupoChat.objects.create(nombre=f"Sala de Guerra {nombre}", es_grupo=True)
+                chat_sala.miembros.add(perfil)
 
-            # 3. Empaquetamos los datos y convertimos la hora UTC a tu hora local de Santiago
-            data = []
-            for msg in mensajes_bd:
-                data.append({
-                    'id': msg.id,
-                    'autor': msg.autor.usuario.username,
-                    'texto': msg.texto,
-                    'hora': timezone.localtime(msg.timestamp).strftime('%H:%M')
-                })
-            
-            return Response(data)
+                clan = Clan.objects.create(nombre=nombre, tag=tag, lider=perfil, chat_sala=chat_sala)
+                clan.miembros.add(perfil)
 
-        except GrupoChat.DoesNotExist:
-            return Response({"error": "Chat no encontrado o no tienes acceso."}, status=404)
+            serializer = ClanSerializer(clan)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": "Ocurrió un error al fundar el clan."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MiClanView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request):
+        perfil = request.user.perfil
+        clan = perfil.clanes_unidos.first()
+
+        if not clan:
+            return Response({"en_clan": False, "clan": None})
+
+        return Response({
+            "en_clan": True,
+            "clan": ClanSerializer(clan).data,
+            "miembros": PerfilUsuarioSerializer(clan.miembros.all(), many=True).data,
+            "chat_id": clan.chat_sala.id if clan.chat_sala else None
+        })
+
+class DetalleClanView(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, clan_id):
+        try:
+            clan = Clan.objects.get(id=clan_id)
+            return Response({
+                "clan": ClanSerializer(clan).data,
+                "miembros": PerfilUsuarioSerializer(clan.miembros.all(), many=True).data
+            })
+        except Clan.DoesNotExist:
+            return Response({"error": "El clan especificado no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+class UnirseClanView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request, clan_id):
+        perfil = request.user.perfil
+        if perfil.clanes_unidos.exists():
+            return Response({"error": "Ya perteneces a un clan actualmente."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            clan = Clan.objects.get(id=clan_id)
+            if clan.miembros.count() >= clan.limite_miembros:
+                return Response({"error": "El clan ha alcanzado su capacidad máxima."}, status=status.HTTP_400_BAD_REQUEST)
+
+            with transaction.atomic():
+                clan.miembros.add(perfil)
+                if clan.chat_sala:
+                    clan.chat_sala.miembros.add(perfil)
+
+            return Response({"status": "ok", "mensaje": f"¡Te has unido exitosamente al clan [{clan.tag}] {clan.nombre}!"})
+        except Clan.DoesNotExist:
+            return Response({"error": "El clan no existe."}, status=status.HTTP_404_NOT_FOUND)
+
+class SalirClanView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        perfil = request.user.perfil
+        clan = perfil.clanes_unidos.first()
+
+        if not clan:
+            return Response({"error": "No perteneces a ningún clan."}, status=status.HTTP_400_BAD_REQUEST)
+        if clan.lider == perfil:
+            return Response({"error": "El líder no puede abandonar el clan."}, status=status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            clan.miembros.remove(perfil)
+            if clan.chat_sala:
+                clan.chat_sala.miembros.remove(perfil)
+
+        return Response({"status": "ok", "mensaje": "Has abandonado el clan correctamente."})

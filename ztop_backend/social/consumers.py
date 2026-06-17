@@ -2,7 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.utils import timezone
-from .models import GrupoChat, MensajeChat, SolicitudAmistad
+from .models import GrupoChat, MensajeChat, SolicitudAmistad, Clan
 from juego.models import PerfilUsuario 
 
 class SocialConsumer(AsyncWebsocketConsumer):
@@ -49,7 +49,6 @@ class SocialConsumer(AsyncWebsocketConsumer):
                 await self._handle_enviar_solicitud(data)
             elif action == 'check_online':
                 await self.notificar_presencia(True)
-            # 🚀 SOLUCIÓN BIDIRECCIONAL: Recibimos la respuesta de cortesía y se la pasamos directo al amigo
             elif action == 'estoy_online_tambien':
                 target = data.get('target_username')
                 if target:
@@ -59,7 +58,7 @@ class SocialConsumer(AsyncWebsocketConsumer):
                             'type': 'broadcast_estado',
                             'username': self.user.username,
                             'online': True,
-                            'is_reply': True # 👈 Marca clave para evitar bucles infinitos
+                            'is_reply': True
                         }
                     )
         except json.JSONDecodeError:
@@ -78,8 +77,10 @@ class SocialConsumer(AsyncWebsocketConsumer):
         mensaje = await self.guardar_mensaje_bd(chat_id, self.perfil, texto)
         if not mensaje: return
 
-        # 🚀 SOLUCIÓN 1: Convertimos la hora UTC de la base de datos a tu zona horaria local
         hora_local = timezone.localtime(mensaje.timestamp).strftime('%H:%M')
+        
+        # Consultamos a qué clan pertenece para decorar su mensaje (Si lo tiene)
+        clan_tag = await self.obtener_tag_clan(self.perfil)
 
         await self.channel_layer.group_send(
             f"chat_{chat_id}",
@@ -88,8 +89,9 @@ class SocialConsumer(AsyncWebsocketConsumer):
                 'chat_id': chat_id,
                 'mensaje_id': mensaje.id,
                 'autor': self.user.username,
+                'clan_tag': clan_tag,
                 'texto': texto,
-                'hora': hora_local # 👈 Usamos la hora corregida
+                'hora': hora_local 
             }
         )
 
@@ -129,7 +131,7 @@ class SocialConsumer(AsyncWebsocketConsumer):
                     'type': 'broadcast_estado',
                     'username': self.user.username,
                     'online': is_online,
-                    'is_reply': False # Saludo original, requiere respuesta
+                    'is_reply': False 
                 }
             )
 
@@ -140,7 +142,7 @@ class SocialConsumer(AsyncWebsocketConsumer):
     async def broadcast_mensaje(self, event):
         await self.send(text_data=json.dumps({
             'status': 'nuevo_mensaje', 'chat_id': event['chat_id'], 'mensaje_id': event['mensaje_id'],
-            'autor': event['autor'], 'texto': event['texto'], 'hora': event['hora']
+            'autor': event['autor'], 'clan_tag': event.get('clan_tag', ''), 'texto': event['texto'], 'hora': event['hora']
         }))
 
     async def broadcast_notificacion(self, event):
@@ -190,3 +192,8 @@ class SocialConsumer(AsyncWebsocketConsumer):
             return (True, "Enviada") if created else (False, "Ya existía")
         except PerfilUsuario.DoesNotExist:
             return False, "No encontrado"
+            
+    @database_sync_to_async
+    def obtener_tag_clan(self, perfil):
+        clan = perfil.clanes_unidos.first()
+        return f"[{clan.tag}]" if clan else ""

@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { 
-  HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser, HiMagnifyingGlass, HiUserPlus, HiCheck, HiXMark
+  HiHome, HiChatBubbleLeftRight, HiBell, HiUser, HiMagnifyingGlass, 
+  HiUserPlus, HiCheck, HiXMark, HiShoppingBag, HiUserGroup
 } from "react-icons/hi2";
 import { SocialContext } from '../context/SocialContext';
 
@@ -42,7 +43,8 @@ const NotificacionesView = ({ onNavigate }) => {
 
     const token = localStorage.getItem('ztop_token');
     try {
-      const res = await fetch(`http://192.168.18.199:8000/api/social/solicitud/${solicitudId}/responder/`, {
+      // 🚀 CORRECCIÓN: La ruta correcta que definimos en urls.py es /notificaciones/... no /solicitud/...
+      const res = await fetch(`http://192.168.18.199:8000/api/social/notificaciones/${solicitudId}/responder/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -61,7 +63,7 @@ const NotificacionesView = ({ onNavigate }) => {
   };
 
   return (
-    // 🚀 SOLUCIÓN DILEMA 3: Eliminamos "select-none" para no bloquear teclados móviles
+    // 🚀 Eliminamos "select-none" para no bloquear teclados móviles al buscar
     <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden">
       
       {/* HEADER */}
@@ -114,7 +116,7 @@ const NotificacionesView = ({ onNavigate }) => {
         </div>
 
         {/* SECCIÓN SOLICITUDES PENDIENTES */}
-        <div className="px-6 py-6 space-y-4">
+        <div className="px-6 py-6 space-y-4 pb-12">
           <h3 className="font-title text-[10px] font-bold uppercase tracking-widest text-white/50 flex items-center mb-3">
             Solicitudes Recibidas
             {notificaciones.length > 0 && (
@@ -152,24 +154,30 @@ const NotificacionesView = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* BOTTOM NAV BAR */}
-      <div className="w-full h-20 bg-brand-primary/20 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-md mt-auto">
+      {/* 📱 BOTTOM NAV BAR UNIFICADA (6 BOTONES) */}
+      <div className="absolute bottom-0 w-full h-20 bg-brand-primary/30 border-t border-white/5 px-6 flex items-center justify-between z-10 backdrop-blur-xl">
         <button onClick={() => onNavigate('home')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiHome className="w-6 h-6" />
         </button>
+        
         <button onClick={() => onNavigate('chats')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
           <HiChatBubbleLeftRight className="w-6 h-6" />
         </button>
-        <button className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
-          <HiPencilSquare className="w-6 h-6" />
+
+        <button onClick={() => onNavigate('tienda')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+          <HiShoppingBag className="w-6 h-6" />
         </button>
         
-        {/* 🚀 SOLUCIÓN DILEMA 2: Ícono de Campana ACTIVO con Punto Rojo Dinámico */}
-        <button className="relative flex flex-col items-center justify-center space-y-1 text-white group">
-          <HiBell className="w-6 h-6 drop-shadow-[0_2px_10px_rgba(255,255,255,0.6)]" />
-          <div className="w-1 h-1 bg-white rounded-full"></div>
+        <button onClick={() => onNavigate('clanes')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+          <HiUserGroup className="w-6 h-6" />
+        </button>
+        
+        {/* 🔔 Ícono de Campana ACTIVO */}
+        <button className="relative flex flex-col items-center justify-center space-y-1 text-brand-accent group">
+          <HiBell className="w-6 h-6 drop-shadow-[0_2px_8px_rgba(10,232,198,0.4)]" />
+          <div className="w-1 h-1 bg-brand-accent rounded-full"></div>
           {notificaciones.length > 0 && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-brand-darkBg"></span>
+            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-brand-darkBg"></span>
           )}
         </button>
 

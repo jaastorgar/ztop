@@ -1,5 +1,5 @@
 import React, { useState, useContext } from 'react';
-// 🧵 Íconos profesionales de Heroicons (🚀 Agregamos HiShoppingBag)
+// 🧵 Íconos profesionales de Heroicons 
 import { 
   HiUserGroup, HiPlus, HiArrowRight, HiCheckCircle, HiArrowLeft,
   HiHome, HiChatBubbleLeftRight, HiPencilSquare, HiBell, HiUser,
@@ -110,7 +110,7 @@ const LobbyView = ({ onNavigate }) => {
   };
 
   return (
-    // 🌌 CONTENEDOR PRINCIPAL: Vuelve el bg-brand-darkBg para el tono púrpura oscuro
+    // 🌌 CONTENEDOR PRINCIPAL
     <div className="w-full h-[100dvh] flex flex-col bg-brand-darkBg overflow-hidden justify-between select-none">
       
       {/* 🧾 MÓDULO 1: Menú Principal / Fuera de Sala */}
@@ -214,9 +214,14 @@ const LobbyView = ({ onNavigate }) => {
               <HiChatBubbleLeftRight className="w-6 h-6" />
             </button>
             
-            {/* 🛒 🚀 NUEVO: Botón Tienda (Reemplaza al lápiz) */}
+            {/* 🛒 Botón Tienda */}
             <button onClick={() => onNavigate('tienda')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
               <HiShoppingBag className="w-6 h-6" />
+            </button>
+
+            {/* 🛡️ 🚀 NUEVO: Botón Clanes */}
+            <button onClick={() => onNavigate('clanes')} className="flex flex-col items-center justify-center text-white/40 active:scale-90 transition-all">
+              <HiUserGroup className="w-6 h-6" />
             </button>
             
             {/* Botón Amigos / Notificaciones (Campana dinámica) */}

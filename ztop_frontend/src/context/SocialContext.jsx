@@ -71,7 +71,7 @@ export const SocialProvider = ({ children }) => {
         
         switch (data.status) {
           case 'nuevo_mensaje':
-            // Actualiza la lista de chats con el nuevo mensaje al instante
+            // 🚀 MEJORA: Atrapamos el "clan_tag" para los mensajes de la Sala de Guerra
             setChats(prevChats => prevChats.map(chat => 
               chat.id.toString() === data.chat_id.toString()
                 ? {
@@ -79,7 +79,8 @@ export const SocialProvider = ({ children }) => {
                     ultimo_mensaje: {
                       texto: data.texto,
                       autor: data.autor,
-                      hora: data.hora
+                      hora: data.hora,
+                      clan_tag: data.clan_tag || '' // Guardamos la placa del clan
                     }
                   }
                 : chat

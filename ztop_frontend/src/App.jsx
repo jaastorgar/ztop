@@ -15,6 +15,7 @@ import ChatsView from './views/ChatsView';
 import NotificacionesView from './views/NotificacionesView';
 import ChatActivoView from './views/ChatActivoView';
 import TiendaView from './views/TiendaView';
+import ClanesView from './views/ClanesView'; // 🚀 NUEVA IMPORTACIÓN
 
 /**
  * 🎛️ Componente de Enrutamiento Condicional Interno (SPA)
@@ -76,9 +77,13 @@ const AppContent = () => {
     if (vistaActiva === 'notificaciones') {
       return <NotificacionesView onNavigate={setVistaActiva} />;
     }
-    // 🛒 NUEVO: Interceptor para renderizar la pantalla de la Tienda
+    // 🛒 Interceptor para renderizar la pantalla de la Tienda
     if (vistaActiva === 'tienda') {
       return <TiendaView onNavigate={setVistaActiva} />;
+    }
+    // 🛡️ SOLUCIÓN: Le pasamos onOpenChat a ClanesView para que pueda abrir la sala de guerra
+    if (vistaActiva === 'clanes') {
+      return <ClanesView onNavigate={setVistaActiva} onOpenChat={setChatSeleccionado} />;
     }
   }
 
